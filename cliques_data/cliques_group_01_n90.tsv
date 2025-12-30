@@ -1,4 +1,4 @@
-gram_bibj_pattern	ID	gauge_group	vertices	num_AB	delta	delta_28n	T_min	n_pos_bibj	n_neg_bibj	gram_b0bi	gram_bibj	hyper_strings	hypers
+count_in_group	gram_bibj_pattern	ID	gauge_group	vertices	num_AB	delta	delta_28n	T_min	n_pos_bibj	n_neg_bibj	gram_b0bi	gram_bibj	hyper_strings	hypers
 [[-2, 2], [ 2,-4]]	clq-(0,2)-(0,2)-n55-2f6d3864	SU(8) x SO(16)	vtx-A07-65-n2-0,vtx-D08-8-n4-n2	0,2	-55	1	2	0	2	[ 0,-2]	[[-2, 2], [ 2,-4]]	(1,2) : 1 x (irr-A7-8, irr-D8-16)	(1, 2):[[1, ['irr-A7-8', 'irr-D8-16']]]
 [[-2, 2], [ 2,-4]]	clq-(0,2)-(0,2)-n54-be2a345d	SU(9) x SO(17)	vtx-A08-82-n2-0,vtx-B08-17-n4-n2	0,2	-54	2	2	0	2	[ 0,-2]	[[-2, 2], [ 2,-4]]	(1) : 1 x (irr-A8-9),(1,2) : 1 x (irr-A8-9, irr-B8-17)	(1, 2):[[1, ['irr-A8-9', 'irr-B8-17']]]; (1,):[[1, ['irr-A8-9']]]
 [[-2, 2], [ 2,-4]]	clq-(0,2)-(0,2)-n53-18eeb457	SU(9) x SO(18)	vtx-A08-82-n2-0,vtx-D09-27-n4-n2	0,2	-53	3	2	0	2	[ 0,-2]	[[-2, 2], [ 2,-4]]	(2) : 1 x (irr-D9-18),(1,2) : 1 x (irr-A8-9, irr-D9-18)	(1, 2):[[1, ['irr-A8-9', 'irr-D9-18']]]; (2,):[[1, ['irr-D9-18']]]
