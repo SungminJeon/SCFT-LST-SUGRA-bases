@@ -1,4 +1,4 @@
-| ii | Single LST + Single External | Two Externals | Two Externals |
+| ii | Single LST + Single External | Two Externals | 2-3 External |
 |---:|:---|:---|---|
 | 1 | $`1, \underset{{\color{red}C_{3}}}{\underset{1}{\overset{{\color{red}C_{4}}}{\overset{1}{5}}}}, 1, \overset{2}{3}, 2`$ |  | |
 | 2 | $`{\color{red}C_{1}}, 2, 1, \{{\color{red}C_{4}}, 2, \overset{{\color{red}C_{5}}}{1}, \overset{{\color{red}C_{6}}}{\overset{1}{7}}\}, 1, 2, {\color{red}C_{8}}`$ |  | |
