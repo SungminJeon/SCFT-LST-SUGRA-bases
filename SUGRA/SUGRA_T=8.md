@@ -39,7 +39,7 @@
 | 40 | $`{\color{red}C_{1}}, 3, 1, \overset{{\color{red}C_{4}}}{\overset{1}{5}}, 1, 3, 1, 4`$ |  | |
 | 41 | $`{\color{red}C_{1}}, 3, 2, 1, \overset{{\color{red}C_{5}}}{\overset{1}{6}}, 1, 2, 3, {\color{red}C_{8}}`$ |  | |
 | 42 | $`3, 2, 2, 1, \overset{{\color{red}C_{6}}}{\overset{1}{6}}, 1, 3, {\color{red}C_{8}}`$ |  | |
-| 43 | $`{\color{red}C_{1}}, 1, 2, 2, 2, 2, 2, 2, 1, {\color{red}C_{8}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{8}} == 7`$ |$`({\color{red}C_{1}} == 2 \land {\color{red}C_{8}} == 3) \lor ({\color{red}C_{1}} == 3 \land {\color{red}C_{8}} == 2)`$ |
+| 43 | $`{\color{red}C_{1}}, 1, 2, 2, 2, 2, 2, 2, 1, {\color{red}C_{8}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{8}} == 7`$ |$`\overset{{\color{red}C_{1}} -> 2}{{\color{red}C_{8}} -> 3}, \overset{{\color{red}C_{1}} -> 3}{{\color{red}C_{8}} -> 2}`$ |
 | 44 | $`{\color{red}C_{1}}, 1, 2, 2, 3, 1, 4, 1, 2, {\color{red}C_{8}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{8}} == 5`$ | |
 | 45 | $`{\color{red}C_{1}}, 1, 2, \overset{{\color{red}C_{3}}}{3}, 1, 3, 2, 2, 1, {\color{red}C_{8}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{8}} == 6`$<br>$`{\color{red}C_{3}} + {\color{red}C_{8}} == 4`$ | |
 | 46 | $`{\color{red}C_{1}}, 1, \overset{{\color{red}C_{2}}}{3}, 1, 4, 1, \overset{{\color{red}C_{6}}}{3}, 2, 1, {\color{red}C_{8}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{8}} == 5`$<br>$`{\color{red}C_{2}} + {\color{red}C_{8}} == 4`$ | |
