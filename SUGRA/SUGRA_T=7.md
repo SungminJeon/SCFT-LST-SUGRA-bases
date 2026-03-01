@@ -23,7 +23,7 @@
 | 21 | $`2, 3, 1, \overset{{\color{red}C_{5}}}{\overset{1}{4}}, 1, 4`$ |  | |
 | 25 | $`{\color{red}C_{1}}, 3, 1, \overset{{\color{red}C_{4}}}{\overset{1}{4}}, 1, 4, 1, {\color{red}C_{7}}`$ |  | |
 | 26 | $`{\color{red}C_{1}}, 3, 1, \overset{{\color{red}C_{4}}}{\overset{1}{5}}, 1, 2, 3, {\color{red}C_{7}}`$ |  | |
-| 27 | $`{\color{red}C_{1}}, 1, 2, 2, 2, 2, 2, 1, {\color{red}C_{7}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{7}} == 6`$ |$`{\color{red}C_{1}} + {\color{red}C_{7}} == 4`$ |
+| 27 | $`{\color{red}C_{1}}, 1, 2, 2, 2, 2, 2, 1, {\color{red}C_{7}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{7}} == 6`$ | |
 | 28 | $`{\color{red}C_{1}}, 1, 2, \overset{{\color{red}C_{3}}}{3}, 1, \overset{{\color{red}C_{5}}}{3}, 2, 1, {\color{red}C_{7}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{7}} == 5`$ | |
 | 29 | $`{\color{red}C_{1}}, 1, 2, \overset{{\color{red}C_{3}}}{3}, 1, 4, 1, 2, {\color{red}C_{7}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{7}} == 4`$ | |
 | 30 | $`{\color{red}C_{1}}, 1, 2, 3, 2, 1, 4, 1, {\color{red}C_{7}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{7}} == 4`$ | |
