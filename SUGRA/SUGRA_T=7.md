@@ -23,11 +23,11 @@
 | 21 | $`2, 3, 1, \overset{{\color{red}C_{5}}}{\overset{1}{4}}, 1, 4`$ |  | |
 | 25 | $`{\color{red}C_{1}}, 3, 1, \overset{{\color{red}C_{4}}}{\overset{1}{4}}, 1, 4, 1, {\color{red}C_{7}}`$ |  | |
 | 26 | $`{\color{red}C_{1}}, 3, 1, \overset{{\color{red}C_{4}}}{\overset{1}{5}}, 1, 2, 3, {\color{red}C_{7}}`$ |  | |
-| 27 | $`{\color{red}C_{1}}, 1, 2, 2, 2, 2, 2, 1, {\color{red}C_{7}}`$ | mdCell[{External[1] -> 2, External[7] -> 4}, {External[1] -> 3, External[7] -> 3}, {External[1] -> 4, External[7] -> 2}, {External[1], 1, 2, 2, 2, 2, 2, 1, External[7]}, True] | |
-| 28 | $`{\color{red}C_{1}}, 1, 2, \overset{{\color{red}C_{3}}}{3}, 1, \overset{{\color{red}C_{5}}}{3}, 2, 1, {\color{red}C_{7}}`$ | mdCell[{External[1] -> 2, External[7] -> 3}, {External[1] -> 3, External[7] -> 2}, {External[1], 1, 2, {External[3], 3}, 1, {External[5], 3}, 2, 1, External[7]}, True] | |
+| 27 | $`{\color{red}C_{1}}, 1, 2, 2, 2, 2, 2, 1, {\color{red}C_{7}}`$ | $`\overset{{\color{red}C_{1}} -> 2}{{\color{red}C_{7}} -> 4}, \overset{{\color{red}C_{1}} -> 3}{{\color{red}C_{7}} -> 3}, \overset{{\color{red}C_{1}} -> 4}{{\color{red}C_{7}} -> 2}`$ | |
+| 28 | $`{\color{red}C_{1}}, 1, 2, \overset{{\color{red}C_{3}}}{3}, 1, \overset{{\color{red}C_{5}}}{3}, 2, 1, {\color{red}C_{7}}`$ | $`\overset{{\color{red}C_{1}} -> 2}{{\color{red}C_{7}} -> 3}, \overset{{\color{red}C_{1}} -> 3}{{\color{red}C_{7}} -> 2}`$ | |
 | 29 | $`{\color{red}C_{1}}, 1, 2, \overset{{\color{red}C_{3}}}{3}, 1, 4, 1, 2, {\color{red}C_{7}}`$ | $`\overset{{\color{red}C_{1}} -> 2}{{\color{red}C_{7}} -> 2}`$ | |
 | 30 | $`{\color{red}C_{1}}, 1, 2, 3, 2, 1, 4, 1, {\color{red}C_{7}}`$ | $`\overset{{\color{red}C_{1}} -> 2}{{\color{red}C_{7}} -> 2}`$ | |
-| 31 | $`{\color{red}C_{1}}, 1, \overset{{\color{red}C_{2}}}{3}, 1, 3, 2, 2, 1, {\color{red}C_{7}}`$ | mdCell[{External[1] -> 2, External[7] -> 3}, {External[1] -> 3, External[7] -> 2}, {External[1], 1, {External[2], 3}, 1, 3, 2, 2, 1, External[7]}, True]<br>$`\overset{{\color{red}C_{2}} -> 2}{{\color{red}C_{7}} -> 2}`$ | |
+| 31 | $`{\color{red}C_{1}}, 1, \overset{{\color{red}C_{2}}}{3}, 1, 3, 2, 2, 1, {\color{red}C_{7}}`$ | $`\overset{{\color{red}C_{1}} -> 2}{{\color{red}C_{7}} -> 3}, \overset{{\color{red}C_{1}} -> 3}{{\color{red}C_{7}} -> 2}`$<br>$`\overset{{\color{red}C_{2}} -> 2}{{\color{red}C_{7}} -> 2}`$ | |
 | 32 | $`{\color{red}C_{1}}, 1, \overset{{\color{red}C_{2}}}{3}, 1, 4, 1, \overset{{\color{red}C_{6}}}{3}, 1, {\color{red}C_{7}}`$ | $`\overset{{\color{red}C_{1}} -> 2}{{\color{red}C_{7}} -> 2}`$ | |
 | 33 | $`{\color{red}C_{1}}, 1, 4, 1, 3, 1, 4, 1, {\color{red}C_{7}}`$ |  | |
 | 34 | $`{\color{red}C_{1}}, 1, 4, 1, 4, 1, 2, 3, {\color{red}C_{7}}`$ |  | |
