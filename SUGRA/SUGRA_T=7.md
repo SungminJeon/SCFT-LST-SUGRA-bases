@@ -9,7 +9,7 @@
 | 7 | $`2, \overset{2}{3}, 1, \overset{{\color{red}C_{6}}}{\overset{1}{4}}, 1`$ |  | |
 | 8 | $`{\color{red}C_{1}}, 3, 1, \underset{{\color{red}C_{4}}}{\underset{1}{\overset{{\color{red}C_{5}}}{\overset{1}{5}}}}, 1, 3, {\color{red}C_{7}}`$ |  | |
 | 9 | $`{\color{red}C_{1}}, 3, 1, \{{\color{red}C_{4}}, 2, \overset{{\color{red}C_{5}}}{1}, 5\}, 1, 3, {\color{red}C_{7}}`$ |  | |
-| 10 | $`{\color{red}C_{1}}, 1, 2, \overset{{\color{red}C_{3}}}{3}, 1, \overset{{\color{red}C_{6}}}{\overset{1}{4}}, 1, {\color{red}C_{7}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{6}} == 4`$<br>$`{\color{red}C_{1}} + {\color{red}C_{7}} == 4`$ |$`{\color{red}C_{1}} + {\color{red}C_{6}} == 4`$<br>$`{\color{red}C_{1}} + {\color{red}C_{7}} == 4`$ |
+| 10 | $`{\color{red}C_{1}}, 1, 2, \overset{{\color{red}C_{3}}}{3}, 1, \overset{{\color{red}C_{6}}}{\overset{1}{4}}, 1, {\color{red}C_{7}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{6}} == 4`$<br>$`{\color{red}C_{1}} + {\color{red}C_{7}} == 4`$ |$`{\color{red}C_{1}} + {\color{red}C_{7}} == 4`$ |
 | 11 | $`1, 2, \overset{2}{3}, 1, 4, 1, {\color{red}C_{7}}`$ |  | |
 | 12 | $`{\color{red}C_{1}}, 1, 5, 1, 2, \overset{{\color{red}C_{6}}}{\overset{1}{3}}, 2`$ |  | |
 | 13 | $`{\color{red}C_{1}}, 1, 5, 1, \overset{{\color{red}C_{5}}}{\overset{1}{3}}, 2, 2`$ |  | |

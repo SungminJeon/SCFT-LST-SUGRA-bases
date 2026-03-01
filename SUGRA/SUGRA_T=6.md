@@ -1,7 +1,7 @@
 | ii | Single LST + Single External | Two Externals | 2-3 External |
 |---:|:---|:---|---|
 | 1 | $`{\color{red}C_{1}}, 1, \underset{{\color{red}C_{3}}}{\underset{1}{\overset{{\color{red}C_{4}}}{\overset{1}{5}}}}, 1, 2, {\color{red}C_{6}}`$ |  | |
-| 2 | $`{\color{red}C_{1}}, 1, 2, 2, \underset{{\color{red}C_{4}}}{\overset{{\color{red}C_{5}}}{\overset{1}{3}}}, 1, {\color{red}C_{6}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{5}} == 4`$<br>$`{\color{red}C_{1}} + {\color{red}C_{6}} == 4`$ |$`{\color{red}C_{1}} + {\color{red}C_{5}} == 4`$<br>$`{\color{red}C_{1}} + {\color{red}C_{6}} == 4`$ |
+| 2 | $`{\color{red}C_{1}}, 1, 2, 2, \underset{{\color{red}C_{4}}}{\overset{{\color{red}C_{5}}}{\overset{1}{3}}}, 1, {\color{red}C_{6}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{5}} == 4`$<br>$`{\color{red}C_{1}} + {\color{red}C_{6}} == 4`$ |$`{\color{red}C_{1}} + {\color{red}C_{6}} == 4`$ |
 | 3 | $`{\color{red}C_{1}}, 1, 2, \overset{{\color{red}C_{4}}}{\overset{1}{3}}, 2, 1, {\color{red}C_{6}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{6}} == 4`$ |$`{\color{red}C_{1}} + {\color{red}C_{6}} == 4`$ |
 | 4 | $`{\color{red}C_{1}}, 1, \overset{{\color{red}C_{2}}}{3}, 1, \overset{{\color{red}C_{5}}}{\overset{1}{4}}, 1, {\color{red}C_{6}}`$ |  | |
 | 5 | $`{\color{red}C_{1}}, 2, 1, \overset{{\color{red}C_{4}}}{\overset{1}{5}}, 1, 2, {\color{red}C_{6}}`$ |  | |

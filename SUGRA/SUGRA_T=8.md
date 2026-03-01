@@ -16,7 +16,7 @@
 | 14 | $`{\color{red}C_{1}}, 3, 1, \{{\color{red}C_{4}}, 3, \overset{{\color{red}C_{5}}}{1}, 6\}, 1, 2, 2`$ |  | |
 | 15 | $`{\color{red}C_{1}}, 3, 2, 1, \underset{{\color{red}C_{5}}}{\underset{1}{\overset{{\color{red}C_{6}}}{\overset{1}{6}}}}, 1, 3, {\color{red}C_{8}}`$ |  | |
 | 16 | $`{\color{red}C_{1}}, 3, 2, 1, \{{\color{red}C_{5}}, 3, \overset{{\color{red}C_{6}}}{1}, 6\}, 1, 2`$ |  | |
-| 17 | $`{\color{red}C_{1}}, 1, 2, 2, 3, 1, \overset{{\color{red}C_{7}}}{\overset{1}{4}}, 1, {\color{red}C_{8}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{7}} == 5`$<br>$`{\color{red}C_{1}} + {\color{red}C_{8}} == 5`$ |$`{\color{red}C_{1}} + {\color{red}C_{7}} == 5`$<br>$`{\color{red}C_{1}} + {\color{red}C_{8}} == 5`$ |
+| 17 | $`{\color{red}C_{1}}, 1, 2, 2, 3, 1, \overset{{\color{red}C_{7}}}{\overset{1}{4}}, 1, {\color{red}C_{8}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{7}} == 5`$<br>$`{\color{red}C_{1}} + {\color{red}C_{8}} == 5`$ |$`{\color{red}C_{1}} + {\color{red}C_{8}} == 5`$ |
 | 19 | $`{\color{red}C_{1}}, 1, \overset{{\color{red}C_{2}}}{3}, 1, \overset{{\color{red}C_{5}}}{\overset{1}{5}}, 1, \overset{{\color{red}C_{7}}}{3}, 1, {\color{red}C_{8}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{8}} == 4`$ |$`{\color{red}C_{1}} + {\color{red}C_{8}} == 4`$ |
 | 20 | $`{\color{red}C_{1}}, 1, \overset{{\color{red}C_{2}}}{3}, 1, \overset{{\color{red}C_{5}}}{\overset{1}{6}}, 1, 2, 2, {\color{red}C_{8}}`$ |  | |
 | 21 | $`{\color{red}C_{1}}, 1, \overset{{\color{red}C_{2}}}{3}, 2, 1, \overset{{\color{red}C_{6}}}{\overset{1}{6}}, 1, 2, {\color{red}C_{8}}`$ |  | |
