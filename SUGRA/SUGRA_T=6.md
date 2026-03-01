@@ -9,7 +9,7 @@
 | 12 | $`{\color{red}C_{1}}, 3, 1, \overset{{\color{red}C_{4}}}{\overset{1}{4}}, 1, 3, {\color{red}C_{6}}`$ |  | |
 | 13 | $`{\color{red}C_{1}}, 3, 1, \overset{2}{3}, 2, 1`$ |  | |
 | 14 | $`3, \overset{2}{2}, 1, 8, 1, {\color{red}C_{6}}`$ |  | |
-| 15 | $`{\color{red}C_{1}}, 1, 2, 2, 2, 2, 1, {\color{red}C_{6}}`$ | mdCell[{External[1] -> 2, External[6] -> 3}, {External[1] -> 3, External[6] -> 2}, {External[1], 1, 2, 2, 2, 2, 1, External[6]}, True] | |
+| 15 | $`{\color{red}C_{1}}, 1, 2, 2, 2, 2, 1, {\color{red}C_{6}}`$ | $`\overset{{\color{red}C_{1}} -> 2}{{\color{red}C_{6}} -> 3}, \overset{{\color{red}C_{1}} -> 3}{{\color{red}C_{6}} -> 2}`$ | |
 | 16 | $`{\color{red}C_{1}}, 1, 2, 2, 3, 1, 2, {\color{red}C_{6}}`$ | $`\overset{{\color{red}C_{1}} -> 2}{{\color{red}C_{6}} -> 2}`$ | |
 | 17 | $`{\color{red}C_{1}}, 1, \overset{{\color{red}C_{2}}}{3}, 1, \overset{{\color{red}C_{4}}}{3}, 2, 1, {\color{red}C_{6}}`$ | $`\overset{{\color{red}C_{1}} -> 2}{{\color{red}C_{6}} -> 2}`$ | |
 | 18 | $`{\color{red}C_{1}}, 1, \overset{{\color{red}C_{2}}}{3}, 1, 4, 1, 2, {\color{red}C_{6}}`$ |  | |
