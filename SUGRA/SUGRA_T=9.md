@@ -59,8 +59,8 @@
 | 60 | $`{\color{red}C_{1}}, 3, 1, \overset{{\color{red}C_{4}}}{\overset{1}{6}}, 1, 2, 3, 1, 4`$ |  | |
 | 61 | $`{\color{red}C_{1}}, 3, 2, 1, \overset{{\color{red}C_{5}}}{\overset{1}{6}}, 1, 3, 1, 4`$ |  | |
 | 62 | $`3, 2, 2, 1, \overset{{\color{red}C_{6}}}{\overset{1}{7}}, 1, 2, 3, {\color{red}C_{9}}`$ |  | |
-| 63 | $`{\color{red}C_{1}}, 1, 2, 2, 2, 2, 2, 2, 2, 1, {\color{red}C_{9}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{9}} == 8`$ |$`({\color{red}C_{1}} == 2 \land {\color{red}C_{9}} == 4) \lor ({\color{red}C_{1}} == 3 \land {\color{red}C_{9}} == 3) \lor ({\color{red}C_{1}} == 4 \land {\color{red}C_{9}} == 2)`$ |
-| 64 | $`{\color{red}C_{1}}, 1, 2, 2, 3, 1, 3, 2, 2, 1, {\color{red}C_{9}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{9}} == 7`$ |$`({\color{red}C_{1}} == 2 \land {\color{red}C_{9}} == 3) \lor ({\color{red}C_{1}} == 3 \land {\color{red}C_{9}} == 2)`$ |
+| 63 | $`{\color{red}C_{1}}, 1, 2, 2, 2, 2, 2, 2, 2, 1, {\color{red}C_{9}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{9}} == 8`$ |$``$ |
+| 64 | $`{\color{red}C_{1}}, 1, 2, 2, 3, 1, 3, 2, 2, 1, {\color{red}C_{9}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{9}} == 7`$ |$`\overset{{\color{red}C_{1}} -> 2}{{\color{red}C_{9}} -> 3}, \overset{{\color{red}C_{1}} -> 3}{{\color{red}C_{9}} -> 2}`$ |
 | 65 | $`{\color{red}C_{1}}, 1, 2, \overset{{\color{red}C_{3}}}{3}, 1, 4, 1, \overset{{\color{red}C_{7}}}{3}, 2, 1, {\color{red}C_{9}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{7}} == 4`$<br>$`{\color{red}C_{1}} + {\color{red}C_{9}} == 6`$<br>$`{\color{red}C_{3}} + {\color{red}C_{9}} == 4`$ | |
 | 66 | $`{\color{red}C_{1}}, 1, 2, \overset{{\color{red}C_{3}}}{3}, 1, 4, 1, 4, 1, 2, {\color{red}C_{9}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{9}} == 5`$ | |
 | 67 | $`{\color{red}C_{1}}, 1, 2, \overset{{\color{red}C_{3}}}{3}, 1, 5, 1, 3, 1, 3, {\color{red}C_{9}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{9}} == 4`$ | |
