@@ -1,23 +1,23 @@
 | ii | Single LST + Single External | Two Externals |
 |---:|:---|:---|
-| 1 | {C[1], 1, $`\underset{C[3]}{\underset{1}{\overset{C[4]}{\overset{1}{5}}}}`$, 1, 2, C[6]} |  |
-| 2 | {C[1], 1, 2, 2, $`\underset{C[4]}{\overset{C[5]}{\overset{1}{3}}}`$, 1, C[6]} | C[1] + C[5] == 4<br>C[1] + C[6] == 4 |
-| 3 | {C[1], 1, 2, $`\overset{C[4]}{\overset{1}{3}}`$, 2, 1, C[6]} | C[1] + C[6] == 4 |
-| 4 | {C[1], 1, $`\overset{C[2]}{3}`$, 1, $`\overset{C[5]}{\overset{1}{4}}`$, 1, C[6]} |  |
-| 5 | {C[1], 2, 1, $`\overset{C[4]}{\overset{1}{5}}`$, 1, 2, C[6]} |  |
-| 8 | {C[1], 2, $`\overset{C[3]}{\overset{1}{3}}`$, 1, 4, 1, C[6]} |  |
-| 12 | {C[1], 3, 1, $`\overset{C[4]}{\overset{1}{4}}`$, 1, 3, C[6]} |  |
-| 13 | {C[1], 3, 1, $`\overset{2}{3}`$, 2, 1} |  |
-| 14 | {3, $`\overset{2}{2}`$, 1, 8, 1, C[6]} |  |
-| 15 | {C[1], 1, 2, 2, 2, 2, 1, C[6]} | C[1] + C[6] == 5 |
-| 16 | {C[1], 1, 2, 2, 3, 1, 2, C[6]} | C[1] + C[6] == 4 |
-| 17 | {C[1], 1, $`\overset{C[2]}{3}`$, 1, $`\overset{C[4]}{3}`$, 2, 1, C[6]} | C[1] + C[6] == 4 |
-| 18 | {C[1], 1, $`\overset{C[2]}{3}`$, 1, 4, 1, 2, C[6]} |  |
-| 19 | {C[1], 1, $`\overset{C[2]}{3}`$, 2, 1, 4, 1, C[6]} |  |
-| 20 | {C[1], 1, 3, 2, 2, 1, 4} |  |
-| 21 | {C[1], 2, 2, 1, 5, 1, 2, C[6]} |  |
-| 22 | {2, 2, 2, 1, 5, 1, C[6]} |  |
-| 25 | {C[1], 3, 1, 2, 3, 2, 1, C[6]} |  |
-| 26 | {C[1], 3, 1, 3, 1, 4, 1, C[6]} |  |
-| 27 | {C[1], 3, 1, 3, 2, 1, 4} |  |
-| 28 | {C[1], 3, 2, 1, 4, 1, 3, C[6]} |  |
+| 1 | $`{\color{red}C_{1}}, 1, \underset{{\color{red}C_{3}}}{\underset{1}{\overset{{\color{red}C_{4}}}{\overset{1}{5}}}}, 1, 2, {\color{red}C_{6}}`$ |  |
+| 2 | $`{\color{red}C_{1}}, 1, 2, 2, \underset{{\color{red}C_{4}}}{\overset{{\color{red}C_{5}}}{\overset{1}{3}}}, 1, {\color{red}C_{6}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{5}} == 4`$<br>$`{\color{red}C_{1}} + {\color{red}C_{6}} == 4`$ |
+| 3 | $`{\color{red}C_{1}}, 1, 2, \overset{{\color{red}C_{4}}}{\overset{1}{3}}, 2, 1, {\color{red}C_{6}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{6}} == 4`$ |
+| 4 | $`{\color{red}C_{1}}, 1, \overset{{\color{red}C_{2}}}{3}, 1, \overset{{\color{red}C_{5}}}{\overset{1}{4}}, 1, {\color{red}C_{6}}`$ |  |
+| 5 | $`{\color{red}C_{1}}, 2, 1, \overset{{\color{red}C_{4}}}{\overset{1}{5}}, 1, 2, {\color{red}C_{6}}`$ |  |
+| 8 | $`{\color{red}C_{1}}, 2, \overset{{\color{red}C_{3}}}{\overset{1}{3}}, 1, 4, 1, {\color{red}C_{6}}`$ |  |
+| 12 | $`{\color{red}C_{1}}, 3, 1, \overset{{\color{red}C_{4}}}{\overset{1}{4}}, 1, 3, {\color{red}C_{6}}`$ |  |
+| 13 | $`{\color{red}C_{1}}, 3, 1, \overset{2}{3}, 2, 1`$ |  |
+| 14 | $`3, \overset{2}{2}, 1, 8, 1, {\color{red}C_{6}}`$ |  |
+| 15 | $`{\color{red}C_{1}}, 1, 2, 2, 2, 2, 1, {\color{red}C_{6}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{6}} == 5`$ |
+| 16 | $`{\color{red}C_{1}}, 1, 2, 2, 3, 1, 2, {\color{red}C_{6}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{6}} == 4`$ |
+| 17 | $`{\color{red}C_{1}}, 1, \overset{{\color{red}C_{2}}}{3}, 1, \overset{{\color{red}C_{4}}}{3}, 2, 1, {\color{red}C_{6}}`$ | $`{\color{red}C_{1}} + {\color{red}C_{6}} == 4`$ |
+| 18 | $`{\color{red}C_{1}}, 1, \overset{{\color{red}C_{2}}}{3}, 1, 4, 1, 2, {\color{red}C_{6}}`$ |  |
+| 19 | $`{\color{red}C_{1}}, 1, \overset{{\color{red}C_{2}}}{3}, 2, 1, 4, 1, {\color{red}C_{6}}`$ |  |
+| 20 | $`{\color{red}C_{1}}, 1, 3, 2, 2, 1, 4`$ |  |
+| 21 | $`{\color{red}C_{1}}, 2, 2, 1, 5, 1, 2, {\color{red}C_{6}}`$ |  |
+| 22 | $`2, 2, 2, 1, 5, 1, {\color{red}C_{6}}`$ |  |
+| 25 | $`{\color{red}C_{1}}, 3, 1, 2, 3, 2, 1, {\color{red}C_{6}}`$ |  |
+| 26 | $`{\color{red}C_{1}}, 3, 1, 3, 1, 4, 1, {\color{red}C_{6}}`$ |  |
+| 27 | $`{\color{red}C_{1}}, 3, 1, 3, 2, 1, 4`$ |  |
+| 28 | $`{\color{red}C_{1}}, 3, 2, 1, 4, 1, 3, {\color{red}C_{6}}`$ |  |
