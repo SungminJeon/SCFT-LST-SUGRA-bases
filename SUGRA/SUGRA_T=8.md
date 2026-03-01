@@ -1,7 +1,7 @@
 | ii | Single LST + Single External | Two Externals |
 |---:|:---|:---|
 | 1 | {1, $\underset{C[3]}{\underset{1}{\overset{C[4]}{\overset{1}{5}}}}$, 1, $\overset{2}{3}$, 2} |  |
-| 2 | {C[1], 2, 1, {C[4], 2, $\overset{C[5]}{1}$, $\overset{C[6]}{\overset{1}{7}}$}, 1, 2, C[8]} |  |
+| 2 | {C[1], 2, 1, {C[4], 2, $\overset{C[5]}{1}$, $\overset{C[6]}{\overset{1}{7}}$ }, 1, 2, C[8]} |  |
 | 3 | {C[1], 3, 1, {C[4], 3, $\overset{C[5]}{1}$, $\overset{C[6]}{\overset{1}{6}}$}, 1, 2} |  |
 | 4 | {C[1], 1, $\overset{C[2]}{3}$, 1, $\underset{C[5]}{\underset{1}{\overset{C[6]}{\overset{1}{6}}}}$, 1, 2, C[8]} |  |
 | 5 | {C[1], 1, $\overset{C[2]}{3}$, 1, {C[5], 2, $\overset{C[6]}{1}$, 6}, 1, 2, C[8]} |  |
