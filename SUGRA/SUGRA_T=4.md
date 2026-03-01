@@ -1,4 +1,4 @@
-| ii | LST | MultiExtDet |
+| ii | Single LST + Single External | Two Externals |
 |---:|:---|:---|
 | 1 | {C[1], 1, $\underset{C[2]}{\overset{C[3]}{\overset{1}{3}}}$, 1, C[4]} |  |
 | 4 | {C[1], 1, $\overset{C[2]}{2}$, $\overset{C[3]}{2}$, 1, C[4]} |  |
