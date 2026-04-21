@@ -6,10 +6,10 @@
 
 [duplicates.tsv](duplicates.tsv) (491): duplicate `TH, index, Tmin, Delta, n2, n3, n4, n5, n6, n7, n8, n12`
 
-| sum | indices | rows | file |
+| #(Ext) | indices | rows | file |
 |---:|---:|---:|---|
-|1|85|460|[sum1.tsv](sum1.tsv)|
-|2|72|648|[sum2.tsv](sum2.tsv)|
-|3|36|247|[sum3.tsv](sum3.tsv)|
-|4|5|23|[sum4.tsv](sum4.tsv)|
-|5|1|4|[sum5.tsv](sum5.tsv)|
+|1|85|460|[Ext1.tsv](Ext1.tsv)|
+|2|72|648|[Ext2.tsv](Ext2.tsv)|
+|3|36|247|[Ext3.tsv](Ext3.tsv)|
+|4|5|23|[Ext4.tsv](Ext4.tsv)|
+|5|1|4|[Ext5.tsv](Ext5.tsv)|
