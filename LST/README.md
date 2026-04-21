@@ -1,6 +1,6 @@
 # LSTList dataset
 
-| T | count | file |
+| TH | count | file |
 |---:|---:|---|
 |2|1|[T002.tsv](data/T002.tsv)|
 |3|2|[T003.tsv](data/T003.tsv)|
