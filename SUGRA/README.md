@@ -3,6 +3,7 @@
 `sum = n2+n3+n4+n5+n6+n7+n8+n12`
 
 [LargeIntersection.tsv](LargeIntersection.tsv): Intersection number >=4
+
 `TH, index, Tmin, Delta, n2, n3, n4, n5, n6, n7, n8, n12, On -1, On -2/-3`
 
 | TH | sums | indices | rows | dir | files |
