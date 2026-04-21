@@ -2,6 +2,10 @@
 
 `sum = n2+n3+n4+n5+n6+n7+n8+n12`
 
+[LargeIntersection.tsv](LargeIntersection.tsv) (141): `On -1` has intersection >= 4
+
+[duplicates.tsv](duplicates.tsv) (285): duplicate `TH, index, Tmin, Delta, n2, n3, n4, n5, n6, n7, n8, n12`
+
 | sum | indices | rows | file |
 |---:|---:|---:|---|
 |1|72|325|[sum1.tsv](sum1.tsv)|
