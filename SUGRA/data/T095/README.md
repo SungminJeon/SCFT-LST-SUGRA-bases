@@ -10,5 +10,5 @@
 |---:|---:|---:|---|
 |1|7|14|[Ext1.tsv](Ext1.tsv)|
 |2|7|23|[Ext2.tsv](Ext2.tsv)|
-|3|4|12|[Ext3.tsv](Ext3.tsv)|
+|3|2|9|[Ext3.tsv](Ext3.tsv)|
 |4|1|4|[Ext4.tsv](Ext4.tsv)|

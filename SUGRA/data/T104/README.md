@@ -10,4 +10,4 @@
 |---:|---:|---:|---|
 |1|3|3|[Ext1.tsv](Ext1.tsv)|
 |2|4|11|[Ext2.tsv](Ext2.tsv)|
-|3|3|4|[Ext3.tsv](Ext3.tsv)|
+|3|2|3|[Ext3.tsv](Ext3.tsv)|
