@@ -8,4 +8,4 @@
 
 | #(Ext) | indices | rows | file |
 |---:|---:|---:|---|
-|2|1|2|[Ext2.tsv](Ext2.tsv)|
+|2|1|1|[Ext2.tsv](Ext2.tsv)|
