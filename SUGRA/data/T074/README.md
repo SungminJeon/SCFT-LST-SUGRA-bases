@@ -4,11 +4,11 @@
 
 [LargeIntersection.tsv](LargeIntersection.tsv) (2): `On -1` has intersection >= 4
 
-[duplicates.tsv](duplicates.tsv) (13): duplicate `TH, index, Tmin, Delta, n2, n3, n4, n5, n6, n7, n8, n12`
+[duplicates.tsv](duplicates.tsv) (11): duplicate `TH, index, Tmin, Delta, n2, n3, n4, n5, n6, n7, n8, n12`
 
 | #(Ext) | indices | rows | file |
 |---:|---:|---:|---|
 |1|26|62|[Ext1.tsv](Ext1.tsv)|
 |2|18|45|[Ext2.tsv](Ext2.tsv)|
-|3|6|10|[Ext3.tsv](Ext3.tsv)|
+|3|4|7|[Ext3.tsv](Ext3.tsv)|
 |4|1|3|[Ext4.tsv](Ext4.tsv)|
