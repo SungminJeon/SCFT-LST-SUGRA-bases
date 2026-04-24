@@ -2,7 +2,7 @@
 
 `sum = n2+n3+n4+n5+n6+n7+n8+n12`
 
-[LargeIntersection.tsv](LargeIntersection.tsv) (352): `On -1` has intersection >= 4
+[LargeIntersection.tsv](LargeIntersection.tsv) (351): `On -1` has intersection >= 4
 
 [duplicates.tsv](duplicates.tsv) (399): duplicate `TH, index, Tmin, Delta, n2, n3, n4, n5, n6, n7, n8, n12`
 
@@ -11,8 +11,8 @@
 |1|2|36|[Ext1.tsv](Ext1.tsv)|
 |2|2|93|[Ext2.tsv](Ext2.tsv)|
 |3|2|132|[Ext3.tsv](Ext3.tsv)|
-|4|2|199|[Ext4.tsv](Ext4.tsv)|
-|5|2|185|[Ext5.tsv](Ext5.tsv)|
-|6|1|117|[Ext6.tsv](Ext6.tsv)|
-|7|1|40|[Ext7.tsv](Ext7.tsv)|
+|4|2|198|[Ext4.tsv](Ext4.tsv)|
+|5|2|183|[Ext5.tsv](Ext5.tsv)|
+|6|1|116|[Ext6.tsv](Ext6.tsv)|
+|7|1|39|[Ext7.tsv](Ext7.tsv)|
 |8|1|5|[Ext8.tsv](Ext8.tsv)|

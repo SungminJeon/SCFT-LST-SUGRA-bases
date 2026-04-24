@@ -2,17 +2,17 @@
 
 `sum = n2+n3+n4+n5+n6+n7+n8+n12`
 
-[LargeIntersection.tsv](LargeIntersection.tsv) (2326): `On -1` has intersection >= 4
+[LargeIntersection.tsv](LargeIntersection.tsv) (2269): `On -1` has intersection >= 4
 
-[duplicates.tsv](duplicates.tsv) (3347): duplicate `TH, index, Tmin, Delta, n2, n3, n4, n5, n6, n7, n8, n12`
+[duplicates.tsv](duplicates.tsv) (3327): duplicate `TH, index, Tmin, Delta, n2, n3, n4, n5, n6, n7, n8, n12`
 
 | #(Ext) | indices | rows | file |
 |---:|---:|---:|---|
 |1|28|317|[Ext1.tsv](Ext1.tsv)|
-|2|27|892|[Ext2.tsv](Ext2.tsv)|
-|3|26|1475|[Ext3.tsv](Ext3.tsv)|
-|4|23|1844|[Ext4.tsv](Ext4.tsv)|
-|5|17|1224|[Ext5.tsv](Ext5.tsv)|
-|6|9|401|[Ext6.tsv](Ext6.tsv)|
-|7|3|48|[Ext7.tsv](Ext7.tsv)|
+|2|27|878|[Ext2.tsv](Ext2.tsv)|
+|3|26|1422|[Ext3.tsv](Ext3.tsv)|
+|4|23|1768|[Ext4.tsv](Ext4.tsv)|
+|5|17|1175|[Ext5.tsv](Ext5.tsv)|
+|6|9|386|[Ext6.tsv](Ext6.tsv)|
+|7|3|47|[Ext7.tsv](Ext7.tsv)|
 |8|1|2|[Ext8.tsv](Ext8.tsv)|
