@@ -11,4 +11,3 @@
 |1|32|64|[Ext1.tsv](Ext1.tsv)|
 |2|16|36|[Ext2.tsv](Ext2.tsv)|
 |3|4|4|[Ext3.tsv](Ext3.tsv)|
-|4|1|1|[Ext4.tsv](Ext4.tsv)|
