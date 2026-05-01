@@ -1,2 +1,2 @@
-"TH"	"index"	"Tmin"	"Delta"	"n2"	"n3"	"n4"	"n5"	"n6"	"n7"	"n8"	"n12"	"On -1"	"On -2/-3"	"LST gauge algebra"
-139	3	140	267	0	2	0	0	0	0	0	1	"s1:139→1"	"s2:4→1 / s3:1→1"	"11 e8+11 f5+22(g2+su(2))"
+"TH"	"index"	"LST gauge algebra"	"Tmin"	"Delta"	"n2"	"n3"	"n4"	"n5"	"n6"	"n7"	"n8"	"n12"	"On -1"	"On -2/-3"
+139	3	"11 e8+11 f5+22(g2+su(2))"	140	267	0	2	0	0	0	0	0	1	"s1:139→1"	"s2:4→1 / s3:1→1"
