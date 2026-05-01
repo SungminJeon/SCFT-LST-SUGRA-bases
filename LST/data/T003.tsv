@@ -1,3 +1,3 @@
 "id"	"list"	"29(TH-1)+H-V"	"gauge algebra"	"symmetry"
-1	"{1,2,1}"	58	"$0$"	"Inversion"
-2	"{2,1,2}"	58	"$0$"	"Inversion"
+1	"{1,2,1}"	58	"0"	"Inversion"
+2	"{2,1,2}"	58	"0"	"Inversion"
