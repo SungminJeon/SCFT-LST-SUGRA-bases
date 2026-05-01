@@ -1,2 +1,2 @@
-"TH"	"index"	"LST gauge algebra"	"Tmin"	"Delta"	"n2"	"n3"	"n4"	"n5"	"n6"	"n7"	"n8"	"n12"	"count"
-98	11	"7 e8+e7+8 f5+15(g2+su(2))+so(7)+2 su(2)"	98	270	0	1	0	0	0	0	1	0	2
+"TH"	"index"	"LST gauge algebra"	"full gauge algebra"	"Tmin"	"Delta"	"n2"	"n3"	"n4"	"n5"	"n6"	"n7"	"n8"	"n12"	"count"
+98	11	"7 e8+e7+8 f5+15(g2+su(2))+so(7)+2 su(2)"	"7 e8+2 e7+8 f5+su(3)+15(g2+su(2))+so(7)+2 su(2)"	98	270	0	1	0	0	0	0	1	0	2
