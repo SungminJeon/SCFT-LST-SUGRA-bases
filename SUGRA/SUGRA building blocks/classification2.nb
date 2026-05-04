@@ -6082,7 +6082,7 @@ In[349]:=",ExpressionUUID->"ba20e3e6-71c1-40ae-9f03-bded8fe7bffd"]
 }, Open  ]]
 }, Open  ]]
 },
-WindowSize->{1000, 784},
+WindowSize->{1000, 783},
 WindowMargins->{{220, Automatic}, {Automatic, 0}},
 WindowTitle->"SUGRA Classification (det-sq-nons)",
 FrontEndVersion->"12.1 for Mac OS X x86 (64-bit) (June 19, 2020)",
@@ -6321,6 +6321,4 @@ Cell[274184, 6075, 222, 4, 24, "Print",ExpressionUUID->"ba20e3e6-71c1-40ae-9f03-
 }
 ]
 *)
-
-(* End of internal cache information *)
 
