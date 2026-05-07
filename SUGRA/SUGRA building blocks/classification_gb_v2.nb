@@ -1,0 +1,1569 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 12.1' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       158,          7]
+NotebookDataLength[     58650,       1559]
+NotebookOptionsPosition[     46308,       1354]
+NotebookOutlinePosition[     46756,       1371]
+CellTagsIndexPosition[     46713,       1368]
+WindowTitle->SUGRA Classification (gravity_blocks_v2)
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+
+Cell[CellGroupData[{
+Cell["SUGRA Base Classification (gravity_blocks_v2)", "Title",ExpressionUUID->"4564c90b-afe1-4a2f-8ae6-810ea3882b18"],
+
+Cell["LST Tensor Number / External / LST Gauge Algebra", "Subtitle",ExpressionUUID->"d84d5bd8-7aff-4920-a78b-1589753d2205"],
+
+Cell[CellGroupData[{
+
+Cell["Setup", "Section",ExpressionUUID->"d68ea40f-20b0-4540-9bbe-a1f0f40b01a3"],
+
+Cell[CellGroupData[{
+
+Cell["\<\
+SetDirectory[\"~/Desktop/sugra_pipeline\"];
+Get[\"SUGRACatalog`\"];\
+\>", "Input",
+ EmphasizeSyntaxErrors->True,
+ CellLabel->
+  "In[377]:=",ExpressionUUID->"be8cefb0-76c4-4aea-8612-8725c8ffc1a4"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData["\<\"SUGRACatalog loaded.\"\>"], "Print",
+ CellChangeTimes->{3.9870628594191236`*^9, 3.9870647785715103`*^9},
+ CellLabel->
+  "During evaluation of \
+In[377]:=",ExpressionUUID->"1fdc4499-8dbf-447d-abd3-a5a97ec253f2"],
+
+Cell[BoxData["\<\"  entries = LoadCatalog[\\\"cat_1ext\\\"]\"\>"], "Print",
+ CellChangeTimes->{3.9870628594191236`*^9, 3.9870647785724373`*^9},
+ CellLabel->
+  "During evaluation of \
+In[377]:=",ExpressionUUID->"6f6024f2-4509-48fb-a5e5-20b1c3027cd5"],
+
+Cell[BoxData["\<\"  CatalogSummary[entries]\"\>"], "Print",
+ CellChangeTimes->{3.9870628594191236`*^9, 3.9870647785733232`*^9},
+ CellLabel->
+  "During evaluation of \
+In[377]:=",ExpressionUUID->"98feef29-68d8-4c65-ad76-5a6c8614a7c3"],
+
+Cell[BoxData["\<\"  ShowEntry[entries[[1]]]  (* copy-pasteable IF *)\"\>"], \
+"Print",
+ CellChangeTimes->{3.9870628594191236`*^9, 3.9870647785738983`*^9},
+ CellLabel->
+  "During evaluation of \
+In[377]:=",ExpressionUUID->"d71d214f-b16f-4fb2-8d2b-5c776fb72e53"],
+
+Cell[BoxData["\<\"  FindEntries[entries, \\\"e8\\\"]\"\>"], "Print",
+ CellChangeTimes->{3.9870628594191236`*^9, 3.987064778574498*^9},
+ CellLabel->
+  "During evaluation of \
+In[377]:=",ExpressionUUID->"5b266fac-8211-4611-9064-f519e97fe801"],
+
+Cell[BoxData["\<\"  TMin[entry], TMax[entry]\"\>"], "Print",
+ CellChangeTimes->{3.9870628594191236`*^9, 3.987064778575077*^9},
+ CellLabel->
+  "During evaluation of \
+In[377]:=",ExpressionUUID->"423eb04e-07be-4d7f-9783-2bf673bc1828"]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Define Classification Functions", "Section",ExpressionUUID->"dc2c9ca5-f609-4a0e-a9d9-e8fdb136c780"],
+
+Cell["\<\
+nhcToGauge = <|
+  \"-3\" -> \"su3\",
+  \"-4\" -> \"so8\",
+  \"-5\" -> \"f4\",
+  \"-6\" -> \"e6\",
+  \"-7\" -> \"e7'\",
+  \"-8\" -> \"e7\",
+  \"-12\" -> \"e8\",
+  \"-2-3\" -> \"su2+g2\",
+  \"-2-4\" -> \"su8+so16\",
+  \"-2-3-2\" -> \"su2+so7+su2\",
+  \"-2-2-3\" -> \"sp1+g2\",
+  \"pure-2\" -> \"\",
+  \"???\" -> \"???\"
+|>;
+nhcGaugeName[nhcName_String] := Lookup[nhcToGauge, nhcName, nhcName];
+
+LSTGauge[entry_Association] := Module[
+  {IF = entry[\"IF\"], n, extIdxs, nonM1, visited, gauges = {}},
+  n = Length[IF];
+  extIdxs = ExtIndices[entry] + 1;
+  nonM1 = Select[Range[n], IF[[#, #]] != -1 && !MemberQ[extIdxs, #] &];
+  visited = Association[Thread[nonM1 -> False]];
+  Do[
+    If[!visited[s],
+      Module[{comp = {}, queue = {s}},
+        visited[s] = True;
+        While[Length[queue] > 0,
+          Module[{cur = First[queue]},
+            queue = Rest[queue];
+            AppendTo[comp, cur];
+            Do[If[!visited[nb] && IF[[cur, nb]] != 0,
+              visited[nb] = True; AppendTo[queue, nb]], {nb, nonM1}]]];
+        comp = Sort[comp];
+        Module[{subIF, nhcResult, gName},
+          subIF = IF[[comp, comp]];
+          nhcResult = NHCLookup[subIF];
+          gName = nhcGaugeName[nhcResult[\"name\"]];
+          If[gName =!= \"\" && gName =!= Null,
+            AppendTo[gauges, gName]]]]],
+    {s, nonM1}];
+  Module[{tally, parts},
+    If[gauges === {}, Return[\"(none)\"]];
+    tally = SortBy[Tally[gauges], First];
+    parts = Table[
+      Module[{name = t[[1]], cnt = t[[2]], wrap},
+        wrap = If[StringContainsQ[name, \"+\"], \"(\" <> name <> \")\", \
+name];
+        If[cnt == 1, name, ToString[cnt] <> \" \" <> wrap]],
+      {t, tally}];
+    StringRiffle[parts, \" + \"]]
+];
+
+ExtGauge[entry_Association] := Module[
+  {exts = entry[\"externals\"], gauges},
+  gauges = Table[
+    Switch[ext[\"extSI\"],
+      -2, \"su2\", -3, \"su3\", -4, \"so8\", -5, \"f4\",
+      -6, \"e6\", -7, \"e7'\", -8, \"e7\", -12, \"e8\", -1, \"hat1\",
+      _, ToString[ext[\"extSI\"]]],
+    {ext, exts}];
+  StringRiffle[Sort[gauges], \"+\"]
+];
+
+(* SUGRA Gauge: NHC decomposition of FULL IF + gauge enhancement *)
+SUGRAGauge[entry_Association] := Module[
+  {IF = entry[\"IF\"], n, exts, nonM1, visited, gauges = {}},
+  n = Length[IF];
+  exts = entry[\"externals\"];
+
+  (* 1. NHC decomposition on all non-(-1) curves *)
+  nonM1 = Select[Range[n], IF[[#, #]] != -1 &];
+  visited = Association[Thread[nonM1 -> False]];
+  Do[
+    If[!visited[s],
+      Module[{comp = {}, queue = {s}},
+        visited[s] = True;
+        While[Length[queue] > 0,
+          Module[{cur = First[queue]},
+            queue = Rest[queue];
+            AppendTo[comp, cur];
+            Do[If[!visited[nb] && IF[[cur, nb]] != 0,
+              visited[nb] = True; AppendTo[queue, nb]], {nb, nonM1}]]];
+        comp = Sort[comp];
+        Module[{subIF, nhcResult, gName},
+          subIF = IF[[comp, comp]];
+          nhcResult = NHCLookup[subIF];
+          gName = nhcGaugeName[nhcResult[\"name\"]];
+          If[gName =!= \"\" && gName =!= Null,
+            AppendTo[gauges, gName]]]]],
+    {s, nonM1}];
+
+  (* 2. Gauge enhancement for hat1 externals *)
+  Do[
+    If[ext[\"isHat1\"],
+      If[ext[\"targetSI\"] == -1,
+        AppendTo[gauges, \"su8\"],  (* hat1 -> (-1): su8 *)
+        AppendTo[gauges, \"su16\"]  (* hat1 -> (-2): su16 *)
+      ]],
+    {ext, exts}];
+
+  (* 3. Gauge enhancement for su2 (-2) on standalone (-1) *)
+  Do[
+    If[!ext[\"isHat1\"] && ext[\"extSI\"] == -2 && ext[\"targetSI\"] == -1,
+      (* Check if this -2 is standalone (only connects to -1 curves) *)
+      Module[{ci = ext[\"curveIdx\"] + 1, standalone = True},
+        Do[If[j != ci && IF[[ci, j]] != 0 && IF[[j, j]] != -1,
+          standalone = False], {j, n}];
+        If[standalone, AppendTo[gauges, \"su2\"]]]],
+    {ext, exts}];
+
+  (* Format: group duplicates as \"2 su2 + 3 su3 + e6\" *)
+  Module[{tally, parts},
+    If[gauges === {}, Return[\"(none)\"]];
+    tally = SortBy[Tally[gauges], First];
+    parts = Table[
+      Module[{name = t[[1]], cnt = t[[2]], wrap},
+        wrap = If[StringContainsQ[name, \"+\"], \"(\" <> name <> \")\", \
+name];
+        If[cnt == 1, name, ToString[cnt] <> \" \" <> wrap]],
+      {t, tally}];
+    StringRiffle[parts, \" + \"]]
+];\
+\>", "Input",
+ CellChangeTimes->{{3.987063715948181*^9, 3.987063716378426*^9}},
+ CellLabel->
+  "In[379]:=",ExpressionUUID->"2b95a620-74d9-4551-8c92-a920c6185e57"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Load All Catalogs from gravity_blocks_v2/", "Section",ExpressionUUID->"0272c588-3a71-47e6-ac77-f4000d8d52b7"],
+
+Cell["\<\
+base = \"gravity_blocks_v2/\";
+
+loadGB[prefix_, ranges_] := Join @@ (LoadCatalog /@ 
+  Select[(base <> prefix <> # &) /@ ranges, DirectoryQ]);
+
+tranges = {\"t010\",\"t1120\",\"t2130\",\"t3140\",\"t4150\",
+  \"t5160\",\"t6170\",\"t7180\",\"t8190\",\"t91100\",
+  \"t101110\",\"t111120\",\"t121130\"};\
+\>", "Input",
+ CellLabel->
+  "In[388]:=",ExpressionUUID->"9383a21f-7633-4f1b-b6b3-584356f65cfd"],
+
+Cell[CellGroupData[{
+
+Cell["ext1 = loadGB[\"cat_1ext_\", tranges];", "Input",
+ CellLabel->
+  "In[393]:=",ExpressionUUID->"7e107b7f-aa2c-41d6-8e20-3ec32c13f9b4"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "16247", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_1ext_t010\"\>"}],
+  SequenceForm[
+  "Loaded ", 16247, " entries from ", "gravity_blocks_v2/cat_1ext_t010"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987062932636817*^9, 3.9870648089574223`*^9},
+ CellLabel->
+  "During evaluation of \
+In[393]:=",ExpressionUUID->"cd7356bd-2468-4285-aeba-3412668ae9a7"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "154222", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_1ext_t1120\"\>"}],
+  SequenceForm[
+  "Loaded ", 154222, " entries from ", "gravity_blocks_v2/cat_1ext_t1120"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987062932636817*^9, 3.987065468764413*^9},
+ CellLabel->
+  "During evaluation of \
+In[393]:=",ExpressionUUID->"f4531834-a12a-4591-8791-a12267955935"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "48835", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_1ext_t2130\"\>"}],
+  SequenceForm[
+  "Loaded ", 48835, " entries from ", "gravity_blocks_v2/cat_1ext_t2130"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987062932636817*^9, 3.9870656313446913`*^9},
+ CellLabel->
+  "During evaluation of \
+In[393]:=",ExpressionUUID->"72dbe92f-bfd2-430f-af3e-94f9606494cf"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "14593", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_1ext_t3140\"\>"}],
+  SequenceForm[
+  "Loaded ", 14593, " entries from ", "gravity_blocks_v2/cat_1ext_t3140"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987062932636817*^9, 3.987065713223218*^9},
+ CellLabel->
+  "During evaluation of \
+In[393]:=",ExpressionUUID->"2ebf60da-9211-475c-9b20-7c9ba5c1ae9a"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "7453", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_1ext_t4150\"\>"}],
+  SequenceForm[
+  "Loaded ", 7453, " entries from ", "gravity_blocks_v2/cat_1ext_t4150"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987062932636817*^9, 3.9870657795357857`*^9},
+ CellLabel->
+  "During evaluation of \
+In[393]:=",ExpressionUUID->"7c7f8919-ca24-4315-978f-eff5afc199bc"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "3865", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_1ext_t5160\"\>"}],
+  SequenceForm[
+  "Loaded ", 3865, " entries from ", "gravity_blocks_v2/cat_1ext_t5160"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987062932636817*^9, 3.9870658271835833`*^9},
+ CellLabel->
+  "During evaluation of \
+In[393]:=",ExpressionUUID->"56392161-b8a4-48dc-ab70-2e9e7671da35"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "1627", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_1ext_t6170\"\>"}],
+  SequenceForm[
+  "Loaded ", 1627, " entries from ", "gravity_blocks_v2/cat_1ext_t6170"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987062932636817*^9, 3.987065855100644*^9},
+ CellLabel->
+  "During evaluation of \
+In[393]:=",ExpressionUUID->"77c3e46f-2e09-452f-b858-7336f199920f"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "757", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_1ext_t7180\"\>"}],
+  SequenceForm[
+  "Loaded ", 757, " entries from ", "gravity_blocks_v2/cat_1ext_t7180"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987062932636817*^9, 3.98706587101989*^9},
+ CellLabel->
+  "During evaluation of \
+In[393]:=",ExpressionUUID->"fea9baac-c8c4-419b-b958-bdfcc8eb890b"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "529", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_1ext_t8190\"\>"}],
+  SequenceForm[
+  "Loaded ", 529, " entries from ", "gravity_blocks_v2/cat_1ext_t8190"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987062932636817*^9, 3.9870658852886953`*^9},
+ CellLabel->
+  "During evaluation of \
+In[393]:=",ExpressionUUID->"6715524e-4704-4ac4-b385-186fa48b3c25"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "95", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_1ext_t91100\"\>"}],
+  SequenceForm[
+  "Loaded ", 95, " entries from ", "gravity_blocks_v2/cat_1ext_t91100"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987062932636817*^9, 3.987065888634758*^9},
+ CellLabel->
+  "During evaluation of \
+In[393]:=",ExpressionUUID->"f10b47d6-de41-43d9-81cb-260ca53e809e"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "31", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_1ext_t101110\"\>"}],
+  SequenceForm[
+  "Loaded ", 31, " entries from ", "gravity_blocks_v2/cat_1ext_t101110"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987062932636817*^9, 3.987065889999208*^9},
+ CellLabel->
+  "During evaluation of \
+In[393]:=",ExpressionUUID->"07ff9954-634d-428b-8042-e6e292ed3941"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "24", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_1ext_t111120\"\>"}],
+  SequenceForm[
+  "Loaded ", 24, " entries from ", "gravity_blocks_v2/cat_1ext_t111120"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987062932636817*^9, 3.987065891222681*^9},
+ CellLabel->
+  "During evaluation of \
+In[393]:=",ExpressionUUID->"2b27e2e7-337a-4123-a196-62d0a768f63b"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "17", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_1ext_t121130\"\>"}],
+  SequenceForm[
+  "Loaded ", 17, " entries from ", "gravity_blocks_v2/cat_1ext_t121130"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987062932636817*^9, 3.987065892236227*^9},
+ CellLabel->
+  "During evaluation of \
+In[393]:=",ExpressionUUID->"2ec64865-462b-4af5-88e3-5563dcf70f5a"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["ext2 = loadGB[\"cat_2ext_\", tranges];", "Input",
+ CellLabel->
+  "In[394]:=",ExpressionUUID->"618704cb-d840-453f-b312-0329a7c07698"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "108489", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_2ext_t010\"\>"}],
+  SequenceForm[
+  "Loaded ", 108489, " entries from ", "gravity_blocks_v2/cat_2ext_t010"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066029814187*^9},
+ CellLabel->
+  "During evaluation of \
+In[394]:=",ExpressionUUID->"76b56c52-7704-4e08-bbea-1cbb51c5a238"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "73992", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_2ext_t1120\"\>"}],
+  SequenceForm[
+  "Loaded ", 73992, " entries from ", "gravity_blocks_v2/cat_2ext_t1120"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066153411564*^9},
+ CellLabel->
+  "During evaluation of \
+In[394]:=",ExpressionUUID->"02f877f9-7c4e-46d0-bfae-cd4b960de99c"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "13387", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_2ext_t2130\"\>"}],
+  SequenceForm[
+  "Loaded ", 13387, " entries from ", "gravity_blocks_v2/cat_2ext_t2130"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066201241798*^9},
+ CellLabel->
+  "During evaluation of \
+In[394]:=",ExpressionUUID->"9152e986-1446-44b0-9979-9c5366620a54"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "4014", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_2ext_t3140\"\>"}],
+  SequenceForm[
+  "Loaded ", 4014, " entries from ", "gravity_blocks_v2/cat_2ext_t3140"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066225273381*^9},
+ CellLabel->
+  "During evaluation of \
+In[394]:=",ExpressionUUID->"10c668e2-6c26-45d4-801e-527fe6f0d5ef"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "1924", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_2ext_t4150\"\>"}],
+  SequenceForm[
+  "Loaded ", 1924, " entries from ", "gravity_blocks_v2/cat_2ext_t4150"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066242881831*^9},
+ CellLabel->
+  "During evaluation of \
+In[394]:=",ExpressionUUID->"83495df9-71d0-4bd3-a5ac-aa379c929192"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "506", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_2ext_t5160\"\>"}],
+  SequenceForm[
+  "Loaded ", 506, " entries from ", "gravity_blocks_v2/cat_2ext_t5160"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066249441412*^9},
+ CellLabel->
+  "During evaluation of \
+In[394]:=",ExpressionUUID->"5c6989f4-4dc8-46c9-9736-100dbceff8b9"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "72", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_2ext_t6170\"\>"}],
+  SequenceForm[
+  "Loaded ", 72, " entries from ", "gravity_blocks_v2/cat_2ext_t6170"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066250778511*^9},
+ CellLabel->
+  "During evaluation of \
+In[394]:=",ExpressionUUID->"1c8f4815-c9b3-41a1-be7e-88c715d7cfd8"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "14", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_2ext_t7180\"\>"}],
+  SequenceForm[
+  "Loaded ", 14, " entries from ", "gravity_blocks_v2/cat_2ext_t7180"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066251169423*^9},
+ CellLabel->
+  "During evaluation of \
+In[394]:=",ExpressionUUID->"108aeddb-eff7-4ac4-916b-bea966176a72"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "7", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_2ext_t8190\"\>"}],
+  SequenceForm[
+  "Loaded ", 7, " entries from ", "gravity_blocks_v2/cat_2ext_t8190"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066251393787*^9},
+ CellLabel->
+  "During evaluation of \
+In[394]:=",ExpressionUUID->"254daba8-729f-4402-80bd-4545fefd5f23"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "4", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_2ext_t91100\"\>"}],
+  SequenceForm[
+  "Loaded ", 4, " entries from ", "gravity_blocks_v2/cat_2ext_t91100"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066251560462*^9},
+ CellLabel->
+  "During evaluation of \
+In[394]:=",ExpressionUUID->"914083dc-2130-4b3d-a2a6-c70a934cc580"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "0", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_2ext_t101110\"\>"}],
+  SequenceForm[
+  "Loaded ", 0, " entries from ", "gravity_blocks_v2/cat_2ext_t101110"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066251561948*^9},
+ CellLabel->
+  "During evaluation of \
+In[394]:=",ExpressionUUID->"69cf8487-bd44-4b90-a2e1-ddca7296e599"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "0", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_2ext_t111120\"\>"}],
+  SequenceForm[
+  "Loaded ", 0, " entries from ", "gravity_blocks_v2/cat_2ext_t111120"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066251562654*^9},
+ CellLabel->
+  "During evaluation of \
+In[394]:=",ExpressionUUID->"c7baacbc-46e7-41fd-bb15-9dfdc56405dd"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "0", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_2ext_t121130\"\>"}],
+  SequenceForm[
+  "Loaded ", 0, " entries from ", "gravity_blocks_v2/cat_2ext_t121130"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.9870662515632353`*^9},
+ CellLabel->
+  "During evaluation of \
+In[394]:=",ExpressionUUID->"ca36fe82-8bda-41a5-b870-95735edbab14"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["ext3 = loadGB[\"cat_3ext_\", tranges];", "Input",
+ CellLabel->
+  "In[395]:=",ExpressionUUID->"2066ad0b-fe41-4aa0-bb87-f66e981c4c80"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "207369", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_3ext_t010\"\>"}],
+  SequenceForm[
+  "Loaded ", 207369, " entries from ", "gravity_blocks_v2/cat_3ext_t010"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066431643526*^9},
+ CellLabel->
+  "During evaluation of \
+In[395]:=",ExpressionUUID->"2bd19b38-6691-4527-a2bf-9ca65e7b5859"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "9960", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_3ext_t1120\"\>"}],
+  SequenceForm[
+  "Loaded ", 9960, " entries from ", "gravity_blocks_v2/cat_3ext_t1120"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066448754202*^9},
+ CellLabel->
+  "During evaluation of \
+In[395]:=",ExpressionUUID->"63e4d318-53d2-4659-81d3-bef9c8f395ce"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "1475", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_3ext_t2130\"\>"}],
+  SequenceForm[
+  "Loaded ", 1475, " entries from ", "gravity_blocks_v2/cat_3ext_t2130"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.9870664539812613`*^9},
+ CellLabel->
+  "During evaluation of \
+In[395]:=",ExpressionUUID->"b675e350-db05-4ac8-9f45-54f604418589"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "258", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_3ext_t3140\"\>"}],
+  SequenceForm[
+  "Loaded ", 258, " entries from ", "gravity_blocks_v2/cat_3ext_t3140"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066455597939*^9},
+ CellLabel->
+  "During evaluation of \
+In[395]:=",ExpressionUUID->"0e5f94bd-83e8-4cb8-867d-e5fd0a63d218"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "89", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_3ext_t4150\"\>"}],
+  SequenceForm[
+  "Loaded ", 89, " entries from ", "gravity_blocks_v2/cat_3ext_t4150"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066456419153*^9},
+ CellLabel->
+  "During evaluation of \
+In[395]:=",ExpressionUUID->"a7043568-8306-412a-8fa9-d7a9f2ff649c"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "6", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_3ext_t5160\"\>"}],
+  SequenceForm[
+  "Loaded ", 6, " entries from ", "gravity_blocks_v2/cat_3ext_t5160"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066456515271*^9},
+ CellLabel->
+  "During evaluation of \
+In[395]:=",ExpressionUUID->"d5796cdc-43be-48ac-855d-00ed1af75e4a"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "0", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_3ext_t6170\"\>"}],
+  SequenceForm[
+  "Loaded ", 0, " entries from ", "gravity_blocks_v2/cat_3ext_t6170"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.9870664565167503`*^9},
+ CellLabel->
+  "During evaluation of \
+In[395]:=",ExpressionUUID->"6aba2b60-805d-404a-8dc6-c7b2f43fcab3"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "0", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_3ext_t7180\"\>"}],
+  SequenceForm[
+  "Loaded ", 0, " entries from ", "gravity_blocks_v2/cat_3ext_t7180"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066456517457*^9},
+ CellLabel->
+  "During evaluation of \
+In[395]:=",ExpressionUUID->"fa62baec-82a0-4b4a-bbed-c774ad72c94e"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "0", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_3ext_t8190\"\>"}],
+  SequenceForm[
+  "Loaded ", 0, " entries from ", "gravity_blocks_v2/cat_3ext_t8190"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066456518058*^9},
+ CellLabel->
+  "During evaluation of \
+In[395]:=",ExpressionUUID->"17ad7e90-7f32-47bb-acfd-ca3a0c93e2d9"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "0", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_3ext_t91100\"\>"}],
+  SequenceForm[
+  "Loaded ", 0, " entries from ", "gravity_blocks_v2/cat_3ext_t91100"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066456519046*^9},
+ CellLabel->
+  "During evaluation of \
+In[395]:=",ExpressionUUID->"cb4c9193-c767-499c-91e1-ab08d0fb9644"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["ext4 = loadGB[\"cat_4ext_\", tranges];", "Input",
+ CellLabel->
+  "In[396]:=",ExpressionUUID->"b0de496c-55da-45a4-91e9-30c4934b2bb1"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "156797", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_4ext_t010\"\>"}],
+  SequenceForm[
+  "Loaded ", 156797, " entries from ", "gravity_blocks_v2/cat_4ext_t010"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.9870665796421757`*^9},
+ CellLabel->
+  "During evaluation of \
+In[396]:=",ExpressionUUID->"8733315a-c9fb-4d23-b852-6e46029ffc62"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "1685", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_4ext_t1120\"\>"}],
+  SequenceForm[
+  "Loaded ", 1685, " entries from ", "gravity_blocks_v2/cat_4ext_t1120"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.9870665827472267`*^9},
+ CellLabel->
+  "During evaluation of \
+In[396]:=",ExpressionUUID->"20d7d79c-6698-4590-9579-67dd6824c9f8"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "78", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_4ext_t2130\"\>"}],
+  SequenceForm[
+  "Loaded ", 78, " entries from ", "gravity_blocks_v2/cat_4ext_t2130"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.9870665830796022`*^9},
+ CellLabel->
+  "During evaluation of \
+In[396]:=",ExpressionUUID->"a75fbcac-29b7-4b79-b5ce-ddbc01ff2d3a"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "19", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_4ext_t3140\"\>"}],
+  SequenceForm[
+  "Loaded ", 19, " entries from ", "gravity_blocks_v2/cat_4ext_t3140"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066583205942*^9},
+ CellLabel->
+  "During evaluation of \
+In[396]:=",ExpressionUUID->"c18b9d39-d4e8-4de1-a6b0-8aeaf2fc7b70"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "3", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_4ext_t4150\"\>"}],
+  SequenceForm[
+  "Loaded ", 3, " entries from ", "gravity_blocks_v2/cat_4ext_t4150"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066583248728*^9},
+ CellLabel->
+  "During evaluation of \
+In[396]:=",ExpressionUUID->"c8b6fdf5-17a1-47f8-868b-86db1cbf7092"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "0", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_4ext_t5160\"\>"}],
+  SequenceForm[
+  "Loaded ", 0, " entries from ", "gravity_blocks_v2/cat_4ext_t5160"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066583250573*^9},
+ CellLabel->
+  "During evaluation of \
+In[396]:=",ExpressionUUID->"8f44c4a7-ef20-445f-adf6-5c7b9489fbf7"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["ext5 = loadGB[\"cat_5ext_\", tranges];", "Input",
+ CellLabel->
+  "In[398]:=",ExpressionUUID->"753e84e0-85e3-4c78-b5a4-0bec24a5271a"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "56146", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_5ext_t010\"\>"}],
+  SequenceForm[
+  "Loaded ", 56146, " entries from ", "gravity_blocks_v2/cat_5ext_t010"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066623229398*^9, 3.987066663809516*^9},
+ CellLabel->
+  "During evaluation of \
+In[398]:=",ExpressionUUID->"5776e7c8-1352-4d32-b50c-bf2208c63470"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "33", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_5ext_t1120\"\>"}],
+  SequenceForm[
+  "Loaded ", 33, " entries from ", "gravity_blocks_v2/cat_5ext_t1120"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066623229398*^9, 3.987066663902615*^9},
+ CellLabel->
+  "During evaluation of \
+In[398]:=",ExpressionUUID->"820b02f9-4303-441d-88aa-5a06407e59e0"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "0", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_5ext_t2130\"\>"}],
+  SequenceForm[
+  "Loaded ", 0, " entries from ", "gravity_blocks_v2/cat_5ext_t2130"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066623229398*^9, 3.987066663904739*^9},
+ CellLabel->
+  "During evaluation of \
+In[398]:=",ExpressionUUID->"f2bc4001-d364-4175-9c96-127562166a4d"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["ext6 = loadGB[\"cat_6ext_\", tranges];", "Input",
+ CellLabel->
+  "In[399]:=",ExpressionUUID->"2781b941-4563-4c68-ad1e-4fddbdf70d8e"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "18071", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_6ext_t010\"\>"}],
+  SequenceForm[
+  "Loaded ", 18071, " entries from ", "gravity_blocks_v2/cat_6ext_t010"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066676464275*^9},
+ CellLabel->
+  "During evaluation of \
+In[399]:=",ExpressionUUID->"861130c3-620e-43d9-a2b0-759c984b1713"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "2", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_6ext_t1120\"\>"}],
+  SequenceForm[
+  "Loaded ", 2, " entries from ", "gravity_blocks_v2/cat_6ext_t1120"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066676489656*^9},
+ CellLabel->
+  "During evaluation of \
+In[399]:=",ExpressionUUID->"3a957bdc-78e5-4564-b17e-1d132ebf9ca9"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["ext7 = loadGB[\"cat_7ext_\", tranges];", "Input",
+ CellLabel->
+  "In[400]:=",ExpressionUUID->"2c117dcb-7e9c-4e39-8b27-3b2e32546fe7"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "3450", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_7ext_t010\"\>"}],
+  SequenceForm[
+  "Loaded ", 3450, " entries from ", "gravity_blocks_v2/cat_7ext_t010"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066679275573*^9},
+ CellLabel->
+  "During evaluation of \
+In[400]:=",ExpressionUUID->"98a4cf06-9b91-4a69-a84e-00ce9514adcb"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "0", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_7ext_t1120\"\>"}],
+  SequenceForm[
+  "Loaded ", 0, " entries from ", "gravity_blocks_v2/cat_7ext_t1120"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066679277198*^9},
+ CellLabel->
+  "During evaluation of \
+In[400]:=",ExpressionUUID->"12544d48-01be-428e-8853-7fc79ba17070"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["ext8 = loadGB[\"cat_8ext_\", tranges];", "Input",
+ CellLabel->
+  "In[401]:=",ExpressionUUID->"248345ce-19d3-4f65-9a0f-bfc222b8513d"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "863", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_8ext_t010\"\>"}],
+  SequenceForm[
+  "Loaded ", 863, " entries from ", "gravity_blocks_v2/cat_8ext_t010"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.9870666800984907`*^9},
+ CellLabel->
+  "During evaluation of \
+In[401]:=",ExpressionUUID->"d90939a1-ae8c-4933-8c1f-b400d19b327d"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["ext9 = loadGB[\"cat_9ext_\", tranges];", "Input",
+ CellLabel->
+  "In[402]:=",ExpressionUUID->"2affc3c1-403d-4f31-a57c-8aab2b6cdf78"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "77", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_9ext_t010\"\>"}],
+  SequenceForm[
+  "Loaded ", 77, " entries from ", "gravity_blocks_v2/cat_9ext_t010"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066680237327*^9},
+ CellLabel->
+  "During evaluation of \
+In[402]:=",ExpressionUUID->"ffecb876-016c-490f-b7cd-ab26467afe28"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["ext10 = loadGB[\"cat_10ext_\", tranges];", "Input",
+ CellLabel->
+  "In[403]:=",ExpressionUUID->"119162a6-bef2-4f04-8bed-0a7c8ad167ad"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "1", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_10ext_t010\"\>"}],
+  SequenceForm[
+  "Loaded ", 1, " entries from ", "gravity_blocks_v2/cat_10ext_t010"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066680273473*^9},
+ CellLabel->
+  "During evaluation of \
+In[403]:=",ExpressionUUID->"0a559a5d-5ddd-4940-8784-147590dfeebf"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["NHC ext", "Subsection",ExpressionUUID->"4975cd6a-c008-4715-8415-23e12264fa88"],
+
+Cell[CellGroupData[{
+
+Cell["\<\
+nhcExt = Join @@ (LoadCatalog /@ Select[
+  (base <> # &) /@ \
+{\"cat_nhc_ext\",\"cat_nhc_ext_2ext\",\"cat_nhc_ext_3ext\",
+   \"cat_nhc_ext_4ext\",\"cat_nhc_ext_5ext\",\"cat_nhc_ext_6ext\",
+   \"cat_nhc_ext_7ext\"}, DirectoryQ]);\
+\>", "Input",
+ CellLabel->
+  "In[404]:=",ExpressionUUID->"71fa563e-fa8a-44d6-8532-d905e3d72b67"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "3618", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_nhc_ext\"\>"}],
+  SequenceForm[
+  "Loaded ", 3618, " entries from ", "gravity_blocks_v2/cat_nhc_ext"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066687589107*^9},
+ CellLabel->
+  "During evaluation of \
+In[404]:=",ExpressionUUID->"6fa496ca-5aa0-452a-826a-5f4ff802294d"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "6838", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_nhc_ext_2ext\"\>"}],
+  SequenceForm[
+  "Loaded ", 6838, " entries from ", "gravity_blocks_v2/cat_nhc_ext_2ext"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066693627673*^9},
+ CellLabel->
+  "During evaluation of \
+In[404]:=",ExpressionUUID->"c6e06237-82bb-4148-80e8-24ce9bdb414d"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "16199", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_nhc_ext_3ext\"\>"}],
+  SequenceForm[
+  "Loaded ", 16199, " entries from ", "gravity_blocks_v2/cat_nhc_ext_3ext"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066707102866*^9},
+ CellLabel->
+  "During evaluation of \
+In[404]:=",ExpressionUUID->"b0c4302e-6ebf-4afd-be5d-79409bc87d90"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "19685", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_nhc_ext_4ext\"\>"}],
+  SequenceForm[
+  "Loaded ", 19685, " entries from ", "gravity_blocks_v2/cat_nhc_ext_4ext"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066874077962*^9},
+ CellLabel->
+  "During evaluation of \
+In[404]:=",ExpressionUUID->"a4968e26-6ad8-4ef3-8129-53b094d8817f"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "8174", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_nhc_ext_5ext\"\>"}],
+  SequenceForm[
+  "Loaded ", 8174, " entries from ", "gravity_blocks_v2/cat_nhc_ext_5ext"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.98706688513416*^9},
+ CellLabel->
+  "During evaluation of \
+In[404]:=",ExpressionUUID->"dae7669e-ec68-4c96-8da2-51bbbbacf443"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "848", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_nhc_ext_6ext\"\>"}],
+  SequenceForm[
+  "Loaded ", 848, " entries from ", "gravity_blocks_v2/cat_nhc_ext_6ext"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.98706688675572*^9},
+ CellLabel->
+  "During evaluation of \
+In[404]:=",ExpressionUUID->"e9c97d7a-c8c7-407e-bab2-d67ee92c2332"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Loaded \"\>", "\[InvisibleSpace]", "7", 
+   "\[InvisibleSpace]", "\<\" entries from \"\>", 
+   "\[InvisibleSpace]", "\<\"gravity_blocks_v2/cat_nhc_ext_7ext\"\>"}],
+  SequenceForm[
+  "Loaded ", 7, " entries from ", "gravity_blocks_v2/cat_nhc_ext_7ext"],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066886773527*^9},
+ CellLabel->
+  "During evaluation of \
+In[404]:=",ExpressionUUID->"4ead9175-26bf-40e4-ace8-06071962ca6b"]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Merge all", "Subsection",ExpressionUUID->"ac963f41-5949-4c7b-b562-0db996c9cece"],
+
+Cell[CellGroupData[{
+
+Cell["\<\
+allExt = Join[ext1,ext2,ext3,ext4,ext5,ext6,ext7,ext8,ext9,ext10,nhcExt];
+Print[\"Total entries: \", Length[allExt]];\
+\>", "Input",
+ CellLabel->
+  "In[405]:=",ExpressionUUID->"05ca0267-6c8a-4800-8128-20c6307836da"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Total entries: \"\>", "\[InvisibleSpace]", "962455"}],
+  SequenceForm["Total entries: ", 962455],
+  Editable->False]], "Print",
+ CellChangeTimes->{3.987066889149911*^9},
+ CellLabel->
+  "During evaluation of \
+In[405]:=",ExpressionUUID->"dc52c89f-db84-48e5-899d-22f6ddc8924d"]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Entry Count Summary", "Section",ExpressionUUID->"c88c1ad8-5e1e-4bba-b791-b07090abdb17"],
+
+Cell[CellGroupData[{
+
+Cell["\<\
+Grid[{
+  {Style[\"Category\", Bold], Style[\"Count\", Bold]},
+  {\"1-ext\", Length[ext1]},
+  {\"2-ext\", Length[ext2]},
+  {\"3-ext\", Length[ext3]},
+  {\"4-ext\", Length[ext4]},
+  {\"5-ext\", Length[ext5]},
+  {\"6-ext\", Length[ext6]},
+  {\"7-ext\", Length[ext7]},
+  {\"8-ext\", Length[ext8]},
+  {\"9-ext\", Length[ext9]},
+  {\"10-ext\", Length[ext10]},
+  {\"NHC ext\", Length[nhcExt]},
+  {Style[\"Total\", Bold], Style[Length[allExt], Bold]}
+}, Frame -> All]\
+\>", "Input",
+ CellLabel->
+  "In[407]:=",ExpressionUUID->"b9a1250d-aab0-46ca-a20b-41738d05705b"],
+
+Cell[BoxData[
+ TagBox[GridBox[{
+    {
+     StyleBox["\<\"Category\"\>",
+      StripOnInput->False,
+      FontWeight->Bold], 
+     StyleBox["\<\"Count\"\>",
+      StripOnInput->False,
+      FontWeight->Bold]},
+    {"\<\"1-ext\"\>", "248295"},
+    {"\<\"2-ext\"\>", "202409"},
+    {"\<\"3-ext\"\>", "219157"},
+    {"\<\"4-ext\"\>", "158582"},
+    {"\<\"5-ext\"\>", "56179"},
+    {"\<\"6-ext\"\>", "18073"},
+    {"\<\"7-ext\"\>", "3450"},
+    {"\<\"8-ext\"\>", "863"},
+    {"\<\"9-ext\"\>", "77"},
+    {"\<\"10-ext\"\>", "1"},
+    {"\<\"NHC ext\"\>", "55369"},
+    {
+     StyleBox["\<\"Total\"\>",
+      StripOnInput->False,
+      FontWeight->Bold], 
+     StyleBox["962455",
+      StripOnInput->False,
+      FontWeight->Bold]}
+   },
+   AutoDelete->False,
+   GridBoxFrame->{"Columns" -> {{True}}, "Rows" -> {{True}}},
+   GridBoxItemSize->{"Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}],
+  "Grid"]], "Output",
+ CellChangeTimes->{3.987066915276126*^9},
+ CellLabel->
+  "Out[407]=",ExpressionUUID->"d43ba6c8-291b-487f-95b8-aef119e22a7b"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Compute Classification (T_LST, External, LST Gauge)", "Section",ExpressionUUID->"c5943095-d66a-4569-9173-ed7cb8409aef"],
+
+Cell["This will take a while (~1M entries).", "Text",ExpressionUUID->"1958f729-07bb-4336-abca-e8bd69b882c7"],
+
+Cell["\<\
+classData = Monitor[
+  Table[With[{e = allExt[[i]]},
+    <|\"T\" -> e[\"baseT\"],
+      \"extGauge\" -> ExtGauge[e],
+      \"lstGauge\" -> LSTGauge[e],
+      \"sugraGauge\" -> SUGRAGauge[e],
+      \"Tsugra\" -> e[\"T\"],
+      \"det\" -> e[\"det\"],
+      \"uni\" -> (Abs[e[\"det\"]] == 1),
+      \"extCount\" -> Length[e[\"externals\"]]|>],
+    {i, Length[allExt]}],
+  ProgressIndicator[i, {1, Length[allExt]}]
+];\
+\>", "Input",ExpressionUUID->"a80ad610-77d9-49d9-9ed8-408d753ef13a"],
+
+Cell[CellGroupData[{
+
+Cell["Classification Table", "Subsection",ExpressionUUID->"e96fd3f3-df92-42c9-91ae-710dda90d19f"],
+
+Cell["\<\
+groups = GroupBy[classData, {#[\"T\"], #[\"extGauge\"], #[\"lstGauge\"], \
+#[\"sugraGauge\"]} &];
+classTable = SortBy[
+  KeyValueMap[
+    <|\"T_H\" -> #1[[1]], \"External\" -> #1[[2]],
+      \"LST_Gauge\" -> #1[[3]], \"SUGRA_Gauge\" -> #1[[4]],
+      \"Count\" -> Length[#2],
+      \"T_range\" -> MinMax[#2[[All, \"Tsugra\"]]]|> &,
+    groups],
+  {#[\"T_H\"], -#[\"Count\"]} &
+];\
+\>", "Input",ExpressionUUID->"91823a14-0893-48f6-92cf-8c60e3052b62"],
+
+Cell["Dataset[classTable[[;; Min[50, Length[classTable]]]]]", "Input",ExpressionUUID->"f810bd3c-1db7-4a3f-abd7-6b7c83d950ee"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Summary by T_LST", "Subsection",ExpressionUUID->"9831b64a-bb33-4b77-ba19-45756b380c6e"],
+
+Cell["\<\
+tSummary = SortBy[
+  KeyValueMap[{#1, Length[#2]} &, GroupBy[classData, #[\"T\"] &]],
+  First];
+BarChart[tSummary[[All, 2]], ChartLabels -> tSummary[[All, 1]],
+  PlotLabel -> \"Bases by T_LST (gravity_blocks_v2)\"]\
+\>", "Input",ExpressionUUID->"3ec374a7-c7f5-43a0-8961-7380f0e4470d"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Summary by External Gauge", "Subsection",ExpressionUUID->"0a9f46e8-4d2c-4891-8fa8-51739f0770ae"],
+
+Cell["\<\
+extSummary = ReverseSortBy[
+  KeyValueMap[{#1, Length[#2]} &, GroupBy[classData, #[\"extGauge\"] &]],
+  Last];
+Grid[Prepend[extSummary,
+  {Style[\"External\", Bold], Style[\"Count\", Bold]}],
+  Frame -> All]\
+\>", "Input",ExpressionUUID->"0589a162-ca3f-4aec-805e-f24b14f73315"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Summary by LST Gauge (top 30)", "Subsection",ExpressionUUID->"162bb808-4e5c-4178-ba8a-6a5f7e88cb90"],
+
+Cell["\<\
+lstSummary = ReverseSortBy[
+  KeyValueMap[{#1, Length[#2]} &, GroupBy[classData, #[\"lstGauge\"] &]],
+  Last];
+Grid[Prepend[lstSummary[[;; Min[30, Length[lstSummary]]]],
+  {Style[\"LST Gauge\", Bold], Style[\"Count\", Bold]}],
+  Frame -> All]\
+\>", "Input",ExpressionUUID->"411b46b6-1c79-4231-9c44-650bd458f813"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Summary by ext count", "Section",ExpressionUUID->"f2651257-9888-4831-9379-b86635acb003"],
+
+Cell["\<\
+extCountSummary = SortBy[
+  KeyValueMap[{#1, Length[#2]} &, GroupBy[classData, #[\"extCount\"] &]],
+  First];
+Grid[Prepend[extCountSummary,
+  {Style[\"# Externals\", Bold], Style[\"Count\", Bold]}],
+  Frame -> All]\
+\>", "Input",ExpressionUUID->"c247f4c6-e6b7-428c-b36d-b5288840b924"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Unimodular vs Non-unimodular", "Section",ExpressionUUID->"71542785-4ae1-475a-8010-7adb18f3b02f"],
+
+Cell["\<\
+uniCount = Count[classData, _?(#[\"uni\"] &)];
+nonuniCount = Length[classData] - uniCount;
+PieChart[{uniCount, nonuniCount},
+  ChartLabels -> {\"Uni (\" <> ToString[uniCount] <> \")\",
+    \"Non-uni (\" <> ToString[nonuniCount] <> \")\"},
+  PlotLabel -> \"Determinant Distribution\"]\
+\>", "Input",ExpressionUUID->"5339e82f-b675-4a45-93c0-00ba55589c56"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Search Examples", "Section",ExpressionUUID->"72799220-e424-4feb-bfa2-50697376e573"],
+
+Cell["\<\
+(* Find all bases with e8 in LST gauge *)
+e8Bases = Select[allExt, StringContainsQ[LSTGauge[#], \"e8\"] &];
+Print[\"e8 bases: \", Length[e8Bases]]\
+\>", "Input",ExpressionUUID->"a1807ddb-7a84-4ef7-bf59-3247313e3779"],
+
+Cell["\<\
+(* Find bases with hat1 external *)
+hat1Bases = Select[allExt, StringContainsQ[ExtGauge[#], \"hat1\"] &];
+Print[\"hat1 bases: \", Length[hat1Bases]]\
+\>", "Input",ExpressionUUID->"fa1e90e8-ede1-4897-9e84-5012d12a5e99"],
+
+Cell["\<\
+(* Show first result *)
+If[Length[e8Bases] > 0, ShowEntry[e8Bases[[1]]]]\
+\>", "Input",ExpressionUUID->"dbd684fb-0b67-450f-9f21-5c3489b5e70a"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["Export to CSV", "Section",ExpressionUUID->"484d68d8-7d1a-4964-8867-f13e797aabed"],
+
+Cell["\<\
+Export[\"classification_gb.csv\",
+  Prepend[
+    Table[{c[\"T_H\"], c[\"External\"], c[\"LST_Gauge\"], c[\"SUGRA_Gauge\"], \
+c[\"Count\"]},
+      {c, classTable}],
+    {\"T_H\", \"External\", \"LST_Gauge\", \"SUGRA_Gauge\", \"Count\"}]];
+Print[\"Exported to classification_gb.csv\"]\
+\>", "Input",ExpressionUUID->"f73e3dda-5c27-4e6e-8433-e74a569266ab"]
+}, Open  ]]
+}, Open  ]]
+},
+WindowSize->{1000, 783},
+WindowMargins->{{220, Automatic}, {Automatic, 0}},
+WindowTitle->"SUGRA Classification (gravity_blocks_v2)",
+FrontEndVersion->"12.1 for Mac OS X x86 (64-bit) (June 19, 2020)",
+StyleDefinitions->"Default.nb",
+ExpressionUUID->"73cf372e-fce4-434b-a025-788ef628ee3f"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[CellGroupData[{
+Cell[631, 23, 114, 0, 98, "Title",ExpressionUUID->"4564c90b-afe1-4a2f-8ae6-810ea3882b18"],
+Cell[748, 25, 123, 0, 53, "Subtitle",ExpressionUUID->"d84d5bd8-7aff-4920-a78b-1589753d2205"],
+Cell[CellGroupData[{
+Cell[896, 29, 79, 0, 67, "Section",ExpressionUUID->"d68ea40f-20b0-4540-9bbe-a1f0f40b01a3"],
+Cell[CellGroupData[{
+Cell[1000, 33, 205, 6, 48, "Input",ExpressionUUID->"be8cefb0-76c4-4aea-8612-8725c8ffc1a4"],
+Cell[CellGroupData[{
+Cell[1230, 43, 228, 4, 24, "Print",ExpressionUUID->"1fdc4499-8dbf-447d-abd3-a5a97ec253f2"],
+Cell[1461, 49, 249, 4, 24, "Print",ExpressionUUID->"6f6024f2-4509-48fb-a5e5-20b1c3027cd5"],
+Cell[1713, 55, 233, 4, 24, "Print",ExpressionUUID->"98feef29-68d8-4c65-ad76-5a6c8614a7c3"],
+Cell[1949, 61, 260, 5, 24, "Print",ExpressionUUID->"d71d214f-b16f-4fb2-8d2b-5c776fb72e53"],
+Cell[2212, 68, 240, 4, 24, "Print",ExpressionUUID->"5b266fac-8211-4611-9064-f519e97fe801"],
+Cell[2455, 74, 232, 4, 24, "Print",ExpressionUUID->"423eb04e-07be-4d7f-9783-2bf673bc1828"]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[2748, 85, 105, 0, 67, "Section",ExpressionUUID->"dc2c9ca5-f609-4a0e-a9d9-e8fdb136c780"],
+Cell[2856, 87, 4407, 127, 2190, "Input",ExpressionUUID->"2b95a620-74d9-4551-8c92-a920c6185e57"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[7300, 219, 112, 0, 67, "Section",ExpressionUUID->"0272c588-3a71-47e6-ac77-f4000d8d52b7"],
+Cell[7415, 221, 403, 11, 156, "Input",ExpressionUUID->"9383a21f-7633-4f1b-b6b3-584356f65cfd"],
+Cell[CellGroupData[{
+Cell[7843, 236, 138, 2, 30, "Input",ExpressionUUID->"7e107b7f-aa2c-41d6-8e20-3ec32c13f9b4"],
+Cell[CellGroupData[{
+Cell[8006, 242, 499, 11, 24, "Print",ExpressionUUID->"cd7356bd-2468-4285-aeba-3412668ae9a7"],
+Cell[8508, 255, 501, 11, 24, "Print",ExpressionUUID->"f4531834-a12a-4591-8791-a12267955935"],
+Cell[9012, 268, 501, 11, 24, "Print",ExpressionUUID->"72dbe92f-bfd2-430f-af3e-94f9606494cf"],
+Cell[9516, 281, 499, 11, 24, "Print",ExpressionUUID->"2ebf60da-9211-475c-9b20-7c9ba5c1ae9a"],
+Cell[10018, 294, 499, 11, 24, "Print",ExpressionUUID->"7c7f8919-ca24-4315-978f-eff5afc199bc"],
+Cell[10520, 307, 499, 11, 24, "Print",ExpressionUUID->"56392161-b8a4-48dc-ab70-2e9e7671da35"],
+Cell[11022, 320, 497, 11, 24, "Print",ExpressionUUID->"77c3e46f-2e09-452f-b858-7336f199920f"],
+Cell[11522, 333, 494, 11, 24, "Print",ExpressionUUID->"fea9baac-c8c4-419b-b958-bdfcc8eb890b"],
+Cell[12019, 346, 497, 11, 24, "Print",ExpressionUUID->"6715524e-4704-4ac4-b385-186fa48b3c25"],
+Cell[12519, 359, 495, 11, 24, "Print",ExpressionUUID->"f10b47d6-de41-43d9-81cb-260ca53e809e"],
+Cell[13017, 372, 497, 11, 24, "Print",ExpressionUUID->"07ff9954-634d-428b-8042-e6e292ed3941"],
+Cell[13517, 385, 497, 11, 24, "Print",ExpressionUUID->"2b27e2e7-337a-4123-a196-62d0a768f63b"],
+Cell[14017, 398, 497, 11, 24, "Print",ExpressionUUID->"2ec64865-462b-4af5-88e3-5563dcf70f5a"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[14563, 415, 138, 2, 30, "Input",ExpressionUUID->"618704cb-d840-453f-b312-0329a7c07698"],
+Cell[CellGroupData[{
+Cell[14726, 421, 477, 11, 24, "Print",ExpressionUUID->"76b56c52-7704-4e08-bbea-1cbb51c5a238"],
+Cell[15206, 434, 477, 11, 24, "Print",ExpressionUUID->"02f877f9-7c4e-46d0-bfae-cd4b960de99c"],
+Cell[15686, 447, 477, 11, 24, "Print",ExpressionUUID->"9152e986-1446-44b0-9979-9c5366620a54"],
+Cell[16166, 460, 475, 11, 24, "Print",ExpressionUUID->"10c668e2-6c26-45d4-801e-527fe6f0d5ef"],
+Cell[16644, 473, 475, 11, 24, "Print",ExpressionUUID->"83495df9-71d0-4bd3-a5ac-aa379c929192"],
+Cell[17122, 486, 473, 11, 24, "Print",ExpressionUUID->"5c6989f4-4dc8-46c9-9736-100dbceff8b9"],
+Cell[17598, 499, 471, 11, 24, "Print",ExpressionUUID->"1c8f4815-c9b3-41a1-be7e-88c715d7cfd8"],
+Cell[18072, 512, 471, 11, 24, "Print",ExpressionUUID->"108aeddb-eff7-4ac4-916b-bea966176a72"],
+Cell[18546, 525, 469, 11, 24, "Print",ExpressionUUID->"254daba8-729f-4402-80bd-4545fefd5f23"],
+Cell[19018, 538, 471, 11, 24, "Print",ExpressionUUID->"914083dc-2130-4b3d-a2a6-c70a934cc580"],
+Cell[19492, 551, 473, 11, 24, "Print",ExpressionUUID->"69cf8487-bd44-4b90-a2e1-ddca7296e599"],
+Cell[19968, 564, 473, 11, 24, "Print",ExpressionUUID->"c7baacbc-46e7-41fd-bb15-9dfdc56405dd"],
+Cell[20444, 577, 475, 11, 24, "Print",ExpressionUUID->"ca36fe82-8bda-41a5-b870-95735edbab14"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[20968, 594, 138, 2, 30, "Input",ExpressionUUID->"2066ad0b-fe41-4aa0-bb87-f66e981c4c80"],
+Cell[CellGroupData[{
+Cell[21131, 600, 477, 11, 24, "Print",ExpressionUUID->"2bd19b38-6691-4527-a2bf-9ca65e7b5859"],
+Cell[21611, 613, 475, 11, 24, "Print",ExpressionUUID->"63e4d318-53d2-4659-81d3-bef9c8f395ce"],
+Cell[22089, 626, 477, 11, 24, "Print",ExpressionUUID->"b675e350-db05-4ac8-9f45-54f604418589"],
+Cell[22569, 639, 473, 11, 24, "Print",ExpressionUUID->"0e5f94bd-83e8-4cb8-867d-e5fd0a63d218"],
+Cell[23045, 652, 471, 11, 24, "Print",ExpressionUUID->"a7043568-8306-412a-8fa9-d7a9f2ff649c"],
+Cell[23519, 665, 469, 11, 24, "Print",ExpressionUUID->"d5796cdc-43be-48ac-855d-00ed1af75e4a"],
+Cell[23991, 678, 471, 11, 24, "Print",ExpressionUUID->"6aba2b60-805d-404a-8dc6-c7b2f43fcab3"],
+Cell[24465, 691, 469, 11, 24, "Print",ExpressionUUID->"fa62baec-82a0-4b4a-bbed-c774ad72c94e"],
+Cell[24937, 704, 469, 11, 24, "Print",ExpressionUUID->"17ad7e90-7f32-47bb-acfd-ca3a0c93e2d9"],
+Cell[25409, 717, 471, 11, 24, "Print",ExpressionUUID->"cb4c9193-c767-499c-91e1-ab08d0fb9644"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[25929, 734, 138, 2, 30, "Input",ExpressionUUID->"b0de496c-55da-45a4-91e9-30c4934b2bb1"],
+Cell[CellGroupData[{
+Cell[26092, 740, 479, 11, 24, "Print",ExpressionUUID->"8733315a-c9fb-4d23-b852-6e46029ffc62"],
+Cell[26574, 753, 477, 11, 24, "Print",ExpressionUUID->"20d7d79c-6698-4590-9579-67dd6824c9f8"],
+Cell[27054, 766, 473, 11, 24, "Print",ExpressionUUID->"a75fbcac-29b7-4b79-b5ce-ddbc01ff2d3a"],
+Cell[27530, 779, 471, 11, 24, "Print",ExpressionUUID->"c18b9d39-d4e8-4de1-a6b0-8aeaf2fc7b70"],
+Cell[28004, 792, 469, 11, 24, "Print",ExpressionUUID->"c8b6fdf5-17a1-47f8-868b-86db1cbf7092"],
+Cell[28476, 805, 469, 11, 24, "Print",ExpressionUUID->"8f44c4a7-ef20-445f-adf6-5c7b9489fbf7"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[28994, 822, 138, 2, 30, "Input",ExpressionUUID->"753e84e0-85e3-4c78-b5a4-0bec24a5271a"],
+Cell[CellGroupData[{
+Cell[29157, 828, 497, 11, 24, "Print",ExpressionUUID->"5776e7c8-1352-4d32-b50c-bf2208c63470"],
+Cell[29657, 841, 493, 11, 24, "Print",ExpressionUUID->"820b02f9-4303-441d-88aa-5a06407e59e0"],
+Cell[30153, 854, 491, 11, 24, "Print",ExpressionUUID->"f2bc4001-d364-4175-9c96-127562166a4d"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[30693, 871, 138, 2, 30, "Input",ExpressionUUID->"2781b941-4563-4c68-ad1e-4fddbdf70d8e"],
+Cell[CellGroupData[{
+Cell[30856, 877, 475, 11, 24, "Print",ExpressionUUID->"861130c3-620e-43d9-a2b0-759c984b1713"],
+Cell[31334, 890, 469, 11, 24, "Print",ExpressionUUID->"3a957bdc-78e5-4564-b17e-1d132ebf9ca9"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[31852, 907, 138, 2, 30, "Input",ExpressionUUID->"2c117dcb-7e9c-4e39-8b27-3b2e32546fe7"],
+Cell[CellGroupData[{
+Cell[32015, 913, 473, 11, 24, "Print",ExpressionUUID->"98a4cf06-9b91-4a69-a84e-00ce9514adcb"],
+Cell[32491, 926, 469, 11, 24, "Print",ExpressionUUID->"12544d48-01be-428e-8853-7fc79ba17070"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[33009, 943, 138, 2, 30, "Input",ExpressionUUID->"248345ce-19d3-4f65-9a0f-bfc222b8513d"],
+Cell[33150, 947, 473, 11, 24, "Print",ExpressionUUID->"d90939a1-ae8c-4933-8c1f-b400d19b327d"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[33660, 963, 138, 2, 30, "Input",ExpressionUUID->"2affc3c1-403d-4f31-a57c-8aab2b6cdf78"],
+Cell[33801, 967, 469, 11, 24, "Print",ExpressionUUID->"ffecb876-016c-490f-b7cd-ab26467afe28"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[34307, 983, 140, 2, 30, "Input",ExpressionUUID->"119162a6-bef2-4f04-8bed-0a7c8ad167ad"],
+Cell[34450, 987, 469, 11, 24, "Print",ExpressionUUID->"0a559a5d-5ddd-4940-8784-147590dfeebf"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[34956, 1003, 84, 0, 54, "Subsection",ExpressionUUID->"4975cd6a-c008-4715-8415-23e12264fa88"],
+Cell[CellGroupData[{
+Cell[35065, 1007, 336, 8, 84, "Input",ExpressionUUID->"71fa563e-fa8a-44d6-8532-d905e3d72b67"],
+Cell[CellGroupData[{
+Cell[35426, 1019, 469, 11, 24, "Print",ExpressionUUID->"6fa496ca-5aa0-452a-826a-5f4ff802294d"],
+Cell[35898, 1032, 479, 11, 24, "Print",ExpressionUUID->"c6e06237-82bb-4148-80e8-24ce9bdb414d"],
+Cell[36380, 1045, 481, 11, 24, "Print",ExpressionUUID->"b0c4302e-6ebf-4afd-be5d-79409bc87d90"],
+Cell[36864, 1058, 481, 11, 24, "Print",ExpressionUUID->"a4968e26-6ad8-4ef3-8129-53b094d8817f"],
+Cell[37348, 1071, 478, 11, 24, "Print",ExpressionUUID->"dae7669e-ec68-4c96-8da2-51bbbbacf443"],
+Cell[37829, 1084, 476, 11, 24, "Print",ExpressionUUID->"e9c97d7a-c8c7-407e-bab2-d67ee92c2332"],
+Cell[38308, 1097, 473, 11, 24, "Print",ExpressionUUID->"4ead9175-26bf-40e4-ace8-06071962ca6b"]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[38842, 1115, 86, 0, 54, "Subsection",ExpressionUUID->"ac963f41-5949-4c7b-b562-0db996c9cece"],
+Cell[CellGroupData[{
+Cell[38953, 1119, 225, 5, 48, "Input",ExpressionUUID->"05ca0267-6c8a-4800-8128-20c6307836da"],
+Cell[39181, 1126, 324, 8, 24, "Print",ExpressionUUID->"dc52c89f-db84-48e5-899d-22f6ddc8924d"]
+}, Open  ]]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[39566, 1141, 93, 0, 67, "Section",ExpressionUUID->"c88c1ad8-5e1e-4bba-b791-b07090abdb17"],
+Cell[CellGroupData[{
+Cell[39684, 1145, 567, 18, 282, "Input",ExpressionUUID->"b9a1250d-aab0-46ca-a20b-41738d05705b"],
+Cell[40254, 1165, 1036, 34, 257, "Output",ExpressionUUID->"d43ba6c8-291b-487f-95b8-aef119e22a7b"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[41339, 1205, 125, 0, 67, "Section",ExpressionUUID->"c5943095-d66a-4569-9173-ed7cb8409aef"],
+Cell[41467, 1207, 108, 0, 35, "Text",ExpressionUUID->"1958f729-07bb-4336-abca-e8bd69b882c7"],
+Cell[41578, 1209, 494, 14, 246, "Input",ExpressionUUID->"a80ad610-77d9-49d9-9ed8-408d753ef13a"],
+Cell[CellGroupData[{
+Cell[42097, 1227, 97, 0, 54, "Subsection",ExpressionUUID->"e96fd3f3-df92-42c9-91ae-710dda90d19f"],
+Cell[42197, 1229, 459, 12, 192, "Input",ExpressionUUID->"91823a14-0893-48f6-92cf-8c60e3052b62"],
+Cell[42659, 1243, 125, 0, 30, "Input",ExpressionUUID->"f810bd3c-1db7-4a3f-abd7-6b7c83d950ee"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[42821, 1248, 93, 0, 54, "Subsection",ExpressionUUID->"9831b64a-bb33-4b77-ba19-45756b380c6e"],
+Cell[42917, 1250, 291, 6, 102, "Input",ExpressionUUID->"3ec374a7-c7f5-43a0-8961-7380f0e4470d"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[43245, 1261, 102, 0, 54, "Subsection",ExpressionUUID->"0a9f46e8-4d2c-4891-8fa8-51739f0770ae"],
+Cell[43350, 1263, 287, 7, 120, "Input",ExpressionUUID->"0589a162-ca3f-4aec-805e-f24b14f73315"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[43674, 1275, 106, 0, 54, "Subsection",ExpressionUUID->"162bb808-4e5c-4178-ba8a-6a5f7e88cb90"],
+Cell[43783, 1277, 322, 7, 120, "Input",ExpressionUUID->"411b46b6-1c79-4231-9c44-650bd458f813"]
+}, Open  ]]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[44154, 1290, 94, 0, 67, "Section",ExpressionUUID->"f2651257-9888-4831-9379-b86635acb003"],
+Cell[44251, 1292, 294, 7, 120, "Input",ExpressionUUID->"c247f4c6-e6b7-428c-b36d-b5288840b924"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[44582, 1304, 102, 0, 67, "Section",ExpressionUUID->"71542785-4ae1-475a-8010-7adb18f3b02f"],
+Cell[44687, 1306, 363, 7, 120, "Input",ExpressionUUID->"5339e82f-b675-4a45-93c0-00ba55589c56"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[45087, 1318, 89, 0, 67, "Section",ExpressionUUID->"72799220-e424-4feb-bfa2-50697376e573"],
+Cell[45179, 1320, 226, 4, 66, "Input",ExpressionUUID->"a1807ddb-7a84-4ef7-bf59-3247313e3779"],
+Cell[45408, 1326, 228, 4, 66, "Input",ExpressionUUID->"fa1e90e8-ede1-4897-9e84-5012d12a5e99"],
+Cell[45639, 1332, 152, 3, 48, "Input",ExpressionUUID->"dbd684fb-0b67-450f-9f21-5c3489b5e70a"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[45828, 1340, 87, 0, 67, "Section",ExpressionUUID->"484d68d8-7d1a-4964-8867-f13e797aabed"],
+Cell[45918, 1342, 362, 8, 120, "Input",ExpressionUUID->"f73e3dda-5c27-4e6e-8433-e74a569266ab"]
+}, Open  ]]
+}, Open  ]]
+}
+]
+*)
+
+(* End of internal cache information *)
+
