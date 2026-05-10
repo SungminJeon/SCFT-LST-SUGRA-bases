@@ -8,7 +8,7 @@
 
 | #(Ext) | indices | rows | file |
 |---:|---:|---:|---|
-|1|135|472|[Ext1.tsv](Ext1.tsv)|
-|2|95|490|[Ext2.tsv](Ext2.tsv)|
-|3|40|166|[Ext3.tsv](Ext3.tsv)|
+|1|133|470|[Ext1.tsv](Ext1.tsv)|
+|2|91|486|[Ext2.tsv](Ext2.tsv)|
+|3|38|164|[Ext3.tsv](Ext3.tsv)|
 |4|12|49|[Ext4.tsv](Ext4.tsv)|

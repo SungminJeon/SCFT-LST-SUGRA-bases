@@ -9,5 +9,5 @@
 | #(Ext) | indices | rows | file |
 |---:|---:|---:|---|
 |1|15|26|[Ext1.tsv](Ext1.tsv)|
-|2|10|17|[Ext2.tsv](Ext2.tsv)|
+|2|9|16|[Ext2.tsv](Ext2.tsv)|
 |3|1|1|[Ext3.tsv](Ext3.tsv)|
