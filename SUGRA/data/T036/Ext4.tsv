@@ -1,4 +1,4 @@
-"TH"	"index"	"LST gauge algebra"	"full gauge algebra"	"Tmin"	"Delta"	"n2"	"n3"	"n4"	"n5"	"n6"	"n7"	"n8"	"n12"	"On -1"	"On -2/-3"
+"TH+1"	"index"	"LST gauge algebra"	"full gauge algebra"	"Tmin"	"Delta"	"n2"	"n3"	"n4"	"n5"	"n6"	"n7"	"n8"	"n12"	"On -1"	"On -2/-3"
 36	1	"2 e8+3 f5+6(g2+su(2))"	"2 e8+e7+3 f5+so(8)+2 su(3)+6(g2+su(2))"	43	161	0	2	1	0	0	0	1	0	"s1:1→1 / s2:36→1 / s3:36→1 / s4:36→1"	""
 36	1	"2 e8+3 f5+6(g2+su(2))"	"2 e8+e7+3 f5+so(8)+7(g2+su(2))"	43	168	1	1	1	0	0	0	1	0	"s1:1→1 / s2:36→1 / s3:36→1 / s4:36→1"	"s4:39→1"
 36	1	"2 e8+3 f5+6(g2+su(2))"	"3 e8+3 f5+3 su(3)+6(g2+su(2))"	44	66	0	3	0	0	0	0	0	1	"s1:36→1 / s2:1→1 / s3:1→1 / s4:1→1"	""
