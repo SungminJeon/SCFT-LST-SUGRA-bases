@@ -4,13 +4,12 @@
 
 `On -1` and `On -2/-3` are JSON arrays. The n-th entries are paired.
 
-[LargeIntersection.tsv](LargeIntersection.tsv) (3): `On -1` has intersection >= 4
+[LargeIntersection.tsv](LargeIntersection.tsv) (14): `On -1` has intersection >= 4
 
-[duplicates.tsv](duplicates.tsv) (77): duplicate `TH+1, index, Tmin, Delta, n2, n3, n4, n5, n6, n7, n8, n12`
+[duplicates.tsv](duplicates.tsv) (96): duplicate `TH+1, index, Tmin, Delta, n2, n3, n4, n5, n6, n7, n8, n12`
 
 | #(Ext) | indices | rows | file |
 |---:|---:|---:|---|
-|1|58|119|[Ext1.tsv](Ext1.tsv)|
-|2|33|116|[Ext2.tsv](Ext2.tsv)|
-|3|8|12|[Ext3.tsv](Ext3.tsv)|
-|4|1|1|[Ext4.tsv](Ext4.tsv)|
+|1|61|149|[Ext1.tsv](Ext1.tsv)|
+|2|34|111|[Ext2.tsv](Ext2.tsv)|
+|3|6|9|[Ext3.tsv](Ext3.tsv)|

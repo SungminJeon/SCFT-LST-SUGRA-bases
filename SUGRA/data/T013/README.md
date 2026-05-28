@@ -1,16 +1,18 @@
 # T013
 
-`sum = n2+n3+n4+n5+n6+n7+n8+n12`
+`#(Ext) = n2+n3+n4+n5+n6+n7+n8+n12`
 
-[LargeIntersection.tsv](LargeIntersection.tsv) (1850): `On -1` has intersection >= 4
+`On -1` and `On -2/-3` are JSON arrays. The n-th entries are paired.
 
-[duplicates.tsv](duplicates.tsv) (3363): duplicate `TH, index, Tmin, Delta, n2, n3, n4, n5, n6, n7, n8, n12`
+[LargeIntersection.tsv](LargeIntersection.tsv) (1986): `On -1` has intersection >= 4
+
+[duplicates.tsv](duplicates.tsv) (5264): duplicate `TH+1, index, Tmin, Delta, n2, n3, n4, n5, n6, n7, n8, n12`
 
 | #(Ext) | indices | rows | file |
 |---:|---:|---:|---|
-|1|192|1276|[Ext1.tsv](Ext1.tsv)|
-|2|159|2396|[Ext2.tsv](Ext2.tsv)|
-|3|113|2655|[Ext3.tsv](Ext3.tsv)|
-|4|69|1440|[Ext4.tsv](Ext4.tsv)|
-|5|27|173|[Ext5.tsv](Ext5.tsv)|
-|6|1|4|[Ext6.tsv](Ext6.tsv)|
+|1|192|1278|[Ext1.tsv](Ext1.tsv)|
+|2|167|2499|[Ext2.tsv](Ext2.tsv)|
+|3|126|2961|[Ext3.tsv](Ext3.tsv)|
+|4|78|1545|[Ext4.tsv](Ext4.tsv)|
+|5|33|190|[Ext5.tsv](Ext5.tsv)|
+|6|2|5|[Ext6.tsv](Ext6.tsv)|
