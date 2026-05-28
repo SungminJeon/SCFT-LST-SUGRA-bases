@@ -370,9 +370,26 @@ int main(int argc, char* argv[]) {
                 // Helper: check if assignment fits cc budget on all (-1) targets
                 // Returns false if any target (-1) would exceed cc_budget
                 int nhc_si = nhc_spec.self_ints[nhc_idx];
-                GaugeInfo nhc_g = gauge_from_si(nhc_si);
-                // Don't fallback to SU2 for (-2) — NHC gauge may be NONE (e.g., nhc_2_2_3 first curve)
-                // Use gauge_from_si only (conservative: underestimates cc → loose pruning)
+                // NHC-aware gauge for cc accounting. A (-2) inside an NHC chain carries
+                // SU2 (NOT none), so it DOES consume cc on its (-1) target. gauge_from_si(-2)
+                // returns NONE -> add=0 -> incremental prune never fires -> multi-target
+                // enumeration explodes (esp. nhc_2_3_2). Charging the true NHC gauge here makes
+                // the prune fire and matches check_nhc's per-(-1) accounting (output-preserving).
+                GaugeInfo nhc_g;
+                if (nhc_spec.tag == "nhc_2_3_2") {            // su2 x so7 x su2
+                    static const GaugeInfo* g[] = {&GAUGE_SU2, &GAUGE_SO7, &GAUGE_SU2};
+                    nhc_g = (nhc_idx < 3) ? *g[nhc_idx] : gauge_from_si(nhc_si);
+                } else if (nhc_spec.tag == "nhc_2_2_3") {     // g2 x su2 x none (spec order -3,-2,-2)
+                    static const GaugeInfo* g[] = {&GAUGE_G2, &GAUGE_SU2, &GAUGE_NONE};
+                    nhc_g = (nhc_idx < 3) ? *g[nhc_idx] : gauge_from_si(nhc_si);
+                } else if (nhc_spec.tag == "nhc_2_4") {       // su8 x so16
+                    static const GaugeInfo* g[] = {&GAUGE_SU8, &GAUGE_SO16};
+                    nhc_g = (nhc_idx < 2) ? *g[nhc_idx] : gauge_from_si(nhc_si);
+                } else if (nhc_spec.tag == "nhc_2_3") {       // su2 x g2
+                    nhc_g = (nhc_si == -2) ? GAUGE_SU2 : (nhc_si == -3 ? GAUGE_G2 : gauge_from_si(nhc_si));
+                } else {
+                    nhc_g = gauge_from_si(nhc_si);
+                }
 
                 auto try_assignment = [&](const std::vector<std::pair<int,int>>& tgts) {
                     // Check cc on each (-1) target

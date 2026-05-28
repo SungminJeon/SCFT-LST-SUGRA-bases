@@ -683,8 +683,25 @@ inline void attach_nhc_cluster(
 
         // CC-aware assignment: check budget before recursing
         int nhc_si = nhc_spec.self_ints[nhc_idx];
-        GaugeInfo nhc_g = gauge_from_si(nhc_si);
-        // No SU2 fallback for (-2) in NHC — actual gauge may be NONE
+        // NHC-aware gauge for cc accounting. A (-2) inside an NHC chain carries SU2
+        // (NOT none), so it consumes cc on its (-1) target. gauge_from_si(-2)=NONE -> add=0
+        // -> incremental prune never fires -> multi-target enumeration explodes. Charging the
+        // true NHC gauge makes the prune fire and matches check_nhc (output-preserving).
+        GaugeInfo nhc_g;
+        if (nhc_spec.tag == "nhc_2_3_2") {            // su2 x so7 x su2
+            static const GaugeInfo* g[] = {&GAUGE_SU2, &GAUGE_SO7, &GAUGE_SU2};
+            nhc_g = (nhc_idx < 3) ? *g[nhc_idx] : gauge_from_si(nhc_si);
+        } else if (nhc_spec.tag == "nhc_2_2_3") {     // g2 x su2 x none (spec order -3,-2,-2)
+            static const GaugeInfo* g[] = {&GAUGE_G2, &GAUGE_SU2, &GAUGE_NONE};
+            nhc_g = (nhc_idx < 3) ? *g[nhc_idx] : gauge_from_si(nhc_si);
+        } else if (nhc_spec.tag == "nhc_2_4") {       // su8 x so16
+            static const GaugeInfo* g[] = {&GAUGE_SU8, &GAUGE_SO16};
+            nhc_g = (nhc_idx < 2) ? *g[nhc_idx] : gauge_from_si(nhc_si);
+        } else if (nhc_spec.tag == "nhc_2_3") {       // su2 x g2
+            nhc_g = (nhc_si == -2) ? GAUGE_SU2 : (nhc_si == -3 ? GAUGE_G2 : gauge_from_si(nhc_si));
+        } else {
+            nhc_g = gauge_from_si(nhc_si);
+        }
 
         auto try_assignment = [&](const std::vector<std::pair<int,int>>& tgts) {
             for (auto& [t, k] : tgts) {
