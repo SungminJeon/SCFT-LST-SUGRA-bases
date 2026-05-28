@@ -36,13 +36,34 @@ Examples:
 ./run_pipeline.sh 21 30   # T = 21..30 → catalogs in cat_*_t2130 / ...
 ```
 
-The suffix is `t<T_MIN><T_MAX>` (T_MAX zero-padded to 2 digits). All four phases are executed:
+The suffix is `t<T_MIN><T_MAX>` (T_MAX zero-padded to 2 digits). All phases run automatically:
 1. Phase 1 — single-curve external attach (`gen_sugra_phase1`)
 2. NHC ext — attach a full NHC chain (`gen_sugra_nhc_ext`)
 3. Merge — combine Phase 1 + NHC ext outputs
 4. NHC ext Phase 2 chain — multi-round external stacking (`run_chain.sh` driving `gen_sugra_nhc_ext_phase2` for up to 9 rounds)
+5. Collect — all output directories are moved into a single per-range folder `T_<T_MIN>_<T_MAX>/`.
 
-Final outputs live in `cat_nhc_ext_nhc_ext_unified_<suffix>_r<N>{s,ns}ext/`, one directory per round.
+So after `./run_pipeline.sh 0 10` everything lives under `T_0_10/`:
+```
+T_0_10/
+    cat_1ext_nosu2_t010/           cat_1ext_nosu2_t010_nonsugra/
+    cat_nhc_ext_t010/              cat_nhc_ext_t010_nonsugra/
+    cat_phase1_nhc_merged_t010/    cat_phase1_nhc_merged_t010_nonsugra/
+    cat_nhc_ext_nhc_ext_unified_t010_r<N>sext/    (Phase 2 chain, SUGRA)
+    cat_nhc_ext_nhc_ext_unified_t010_r<N>nsext/   (Phase 2 chain, non-SUGRA chain)
+    ... (+ _nonsugra variants)
+```
+
+### Two variants: with / without the su2 external
+
+| Script | `su2` ((-2)→(-1)) external | Output folder |
+|--------|----------------------------|---------------|
+| `run_pipeline.sh`     | **excluded** (`--no-su2`) | `T_<min>_<max>/`     |
+| `run_pipeline_su2.sh` | **included**              | `T_<min>_<max>_su2/` |
+
+The default (`run_pipeline.sh`) skips the single `su2` external because it
+explodes the combinatorics. `run_pipeline_su2.sh` keeps it, for a complete
+enumeration at the cost of much longer runtime and a larger catalog.
 
 To turn `.cat` files into a LaTeX report:
 
@@ -91,22 +112,24 @@ For all exported names: `? SUGRACatalog`*`.
 
 ## Analysis Scripts
 
-The `analysis/` directory contains Python utilities for inspecting catalog
-output and comparing with reference (Hamada) data:
+The `analysis/` directory contains a Python utility for comparing the
+pipeline catalog against a TSV reference data set:
 
 ```
 analysis/
-    README.md                       Notes on each script
-    gen_classification_csv.py       Catalog parser (used by other scripts)
-    compare_delta_T7.py             Basic SJ vs Hamada comparison
-    compare_filtered.py             Same, with true c_ext ≤ 16 filter
-    check_sj_only_cext.py           c_ext distribution of SJ-only entries
-    dump_sj_only_179.py             Dump intersection forms of SJ-only entries
-    find_yh_only_8.py               Locate YH-only entries in Hamada's TSV
+    README.md                  Notes on the script
+    gen_classification_csv.py  Catalog parser (used by the comparison)
+    compare_hamada.py          SJ-vs-YH comparison by (T_H, LST gauge, SUGRA gauge, Δ) key
 ```
 
-These scripts expect Hamada's `data/T*/Ext*.tsv` files in the parent
-directory (not bundled here). See `analysis/README.md` for details.
+Usage:
+```bash
+python3 analysis/compare_hamada.py         # default T_H range = 1..7
+python3 analysis/compare_hamada.py 1 5     # restrict to specific range
+```
+
+The script reads TSV reference data from `<pipeline_root>/data/T*/Ext*.tsv`.
+Supply your own reference data there to enable the comparison.
 
 ## Catalog Format
 

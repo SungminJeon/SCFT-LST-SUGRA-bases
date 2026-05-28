@@ -279,8 +279,9 @@ int main(int argc, char* argv[]) {
                     // Quick cc check (full, catches non-(-1) interactions too)
                     if (!quick_cc_check(new_IF, config.cc_budget)) return;
 
-                    // (LDLT prefilter removed: row/col-order sensitive, false-positive rejections
-                    //  for permutation-similar IFs. compute_sig below is the source of truth.)
+                    // Fast signature prefilter (hybrid LDLT + eigensolve fallback): rejects
+                    // the vast majority of leaves cheaply before the full eigensolve below.
+                    if (sig_pos_exceeds_one_fast(new_IF, config.T_max)) return;
 
                     // Full eigensolve
                     std::vector<double> ev;
