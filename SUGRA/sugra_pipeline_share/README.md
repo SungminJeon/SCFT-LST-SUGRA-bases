@@ -93,6 +93,107 @@ To turn `.cat` files into a LaTeX report:
 | `gen_sugra_phase3` | Glue two Phase 1 entries that share an external curve. |
 | `cat2tex` | Convert `.cat` files into LaTeX tables. |
 
+## External Specs and Intersection Numbers
+
+### Single-curve externals (`gen_sugra_phase1.cpp`, `gen_sugra_phase2.cpp`)
+
+The spec table is built in `build_all_specs()` near the top of
+`gen_sugra_phase1.cpp`. Each line is:
+
+```cpp
+add(ext_si, target_si, int_num, is_hat1, "label", "tag");
+```
+
+- `ext_si`       — self-intersection of the external curve
+- `target_si`    — self-intersection of the LST curve it attaches to
+- `int_num` (k)  — **intersection number** between the external and its target
+- `is_hat1`      — special "hat-1" curve flag
+- `tag`          — short name used in catalog filenames
+
+Current table:
+
+```cpp
+for (int k = 1; k <= 2; k++)
+    add(-2, -1, k, false, "su(2) k=...", "su2");   // (-2)->(-1), k = 1, 2
+add(-2,  -3, 1, false, "(-2)->(-3)",  "su2n3");    // k = 1
+add(-2,  -4, 2, false, "su8->so16",   "su8");      // k = 2
+for (int k = 1; k <= 2; k++)
+    add(-3, -1, k, false, "su(3) k=...", "su3");   // (-3)->(-1), k = 1, 2
+add(-3,  -2, 1, false, "(-3)->(-2)",  "su3n2");    // k = 1
+add(-4,  -1, 1, false, "so(8)",       "so8");      // k = 1
+add(-4,  -2, 2, false, "(-4)->(-2)",  "so16n2");   // k = 2
+add(-5,  -1, 1, false, "f4",          "f4");
+add(-6,  -1, 1, false, "e6",          "e6");
+add(-7,  -1, 1, false, "e7'",         "e7p");
+add(-8,  -1, 1, false, "e7",          "e7");
+add(-12, -1, 1, false, "e8",          "e8");
+add(-1, -1, 1, true,  "hat1->(-1)",   "hat1m1");
+add(-1, -2, 1, true,  "hat1->(-2)",   "hat1m2");
+```
+
+**To change an intersection number** for a single-curve external, edit the
+`int_num` (3rd) argument of the relevant `add(...)` line — or the loop bound
+`k <= 2` to allow more values. For example, to allow `su(3)→(-1)` up to `k=3`:
+
+```cpp
+for (int k = 1; k <= 3; k++)                       // was k <= 2
+    add(-3, -1, k, false, "su(3) k=...", "su3");
+```
+
+`gen_sugra_phase2.cpp` has the **same** `build_all_specs()` block — change both
+files (Phase 1 and Phase 2) to keep single-curve externals consistent across rounds.
+
+> Note: `compute_ext_cc()` in the same files maps `(ext_si, target_si, k)` to the
+> central charge. If you add a genuinely new `(ext_si, target_si)` combination,
+> add a matching case there so the c_ext budget check stays correct.
+
+### NHC cluster externals (`gen_sugra_nhc_ext.cpp`, `gen_sugra_nhc_ext_phase2.cpp`)
+
+NHC chains are defined in `build_nhc_ext_specs()` (top of `gen_sugra_nhc_ext.cpp`):
+
+```cpp
+specs.push_back({id++, "nhc_2_3",   "(-2)-(-3) NHC",     {-2,-3},    {{0,1,1}},          8,  17, 3.8});
+specs.push_back({id++, "nhc_2_3_2", "(-2)-(-3)-(-2) NHC",{-2,-3,-2}, {{0,1,1},{1,2,1}}, 16,  27, 5.5});
+specs.push_back({id++, "nhc_2_2_3", "(-2)-(-2)-(-3) NHC",{-3,-2,-2}, {{0,1,1},{1,2,1}},  8,  17, 3.8});
+specs.push_back({id++, "nhc_2_4",   "(-2)-(-4) NHC",     {-2,-4},    {{0,1,2}},         128, 183, 27.6});
+```
+
+Fields: `{id, tag, label, self_ints, internal_ints, H, V, cc_total}`.
+
+- `self_ints`       — the chain's curve self-intersections
+- `internal_ints`   — edges **inside** the chain as `{a, b, k}` = curve `a`↔curve `b` with intersection `k`
+  (e.g. `nhc_2_4`'s `{0,1,2}` means the `-2` and `-4` curves meet with k=2)
+- `H`, `V`, `cc_total` — pre-computed hyper/vector counts and total central charge
+
+**To change an internal chain intersection number**, edit the `k` in the
+corresponding `internal_ints` triple.
+
+**The intersection number between an NHC curve and the LST target** is decided
+during enumeration (not in the spec table). It is set in the enumeration loop of
+`gen_sugra_nhc_ext.cpp` (and the matching block in `gen_sugra_nhc_ext_phase2.cpp`):
+
+```cpp
+// single-target options
+for (int t : curve_targets) {
+    int kmax = restrict_223 ? 1 : (base_IF(t,t) == -1 ? 2 : 1);   // <-- max intersection number
+    for (int k = 1; k <= kmax; k++) { ... }
+}
+// multi-target options
+enumerate_subsets_v2(curve_m1_targets, 2, max_multi, [&](const auto& targets) {
+    enumerate_int_nums((int)targets.size(), 2, [&](const auto& knums) { ... });   // <-- 2 = max k
+});
+```
+
+- Change `kmax` to allow larger intersection numbers between an NHC curve and a
+  single LST target (the `base_IF(t,t) == -1 ? 2 : 1` rule caps it at 2 only when
+  the target is a `-1` curve).
+- Change the `2` passed to `enumerate_int_nums` to raise the multi-target cap.
+- `restrict_223` is a flag that forces the `nhc_2_2_3` cluster to single-target,
+  k=1 only (it is the most expensive chain). Remove the `restrict_223 ? 1 :`
+  prefix to enumerate it fully.
+
+Increasing any of these sharply increases runtime.
+
 ## Mathematica Interface
 
 `SUGRACatalog.m` loads any of the produced `.cat` files for interactive analysis. Key entry points: `LoadCatalog`, `FindEntries`, `ShowEntry`, `EntryIF`, `TMin`, `Clusters`, `FiberClass`, `GlueEntries`.
