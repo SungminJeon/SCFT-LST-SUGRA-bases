@@ -58,8 +58,8 @@ rm -rf cat_nhc_ext_${SUFFIX} cat_nhc_ext_${SUFFIX}_nonsugra
 rm -rf cat_nhc_ext cat_nhc_ext_nonsugra
 date
 time ./gen_sugra_nhc_ext unified.cat ${T_MAX} ${T_MIN} ${COMMON_FLAGS} --save-nonsugra 2>&1 | tail -5
-mv cat_nhc_ext cat_nhc_ext_${SUFFIX}
-mv cat_nhc_ext_nonsugra cat_nhc_ext_${SUFFIX}_nonsugra
+if [ -d cat_nhc_ext ]; then mv cat_nhc_ext cat_nhc_ext_${SUFFIX}; fi
+if [ -d cat_nhc_ext_nonsugra ]; then mv cat_nhc_ext_nonsugra cat_nhc_ext_${SUFFIX}_nonsugra; fi
 
 # --- Step 3: Merge phase1 + nhc_ext for phase2 input ---
 echo ""
