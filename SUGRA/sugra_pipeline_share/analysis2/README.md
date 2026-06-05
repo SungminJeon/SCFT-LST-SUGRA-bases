@@ -167,8 +167,7 @@ decade.
 
 ### 1) Simple Lie-algebra externals
 
-`extSI` is the self-intersection of the external curve
-(= −h<sup>∨</sup> of the algebra).
+`extSI` is the value stored in `entry.externals[i]["extSI"]`.
 
 | tag    | extSI | count in T1-10 |
 |--------|-------|---------------:|
