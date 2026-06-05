@@ -34,7 +34,7 @@ Counts are from the T1-10 catalog group (T_H = 2..10); the same tag
 vocabulary is used in every other decade.
 
   (1) Simple Lie-algebra externals.  extSI is the self-intersection of
-      the external curve (= -h^\\vee of the algebra).
+      the external curve 
 
         tag      extSI    count in T1-10
         ----     -----    --------------

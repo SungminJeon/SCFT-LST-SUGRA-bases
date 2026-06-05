@@ -209,7 +209,6 @@ cluster's curves.
 
 ### 4) Hat-1 externals (isHat1 = 1)
 
-(−1)-curves used in the hat-1 / unhiggsing construction.
 
 | tag       | count |
 |-----------|------:|
@@ -219,7 +218,7 @@ cluster's curves.
 ### Sample query
 
 ```python
-# A specific configuration: two NHC clusters glued to an LST with one extra su2
+# A specific configuration: two NHC clusters glued to an LST with one external su2
 pick_bases(entries, externals=["nhc_2_3", "nhc_2_3", "su2"])
 ```
 
