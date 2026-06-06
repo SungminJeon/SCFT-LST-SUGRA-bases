@@ -7,6 +7,23 @@
 - C++17 compiler (g++ 9+)
 - [Eigen3](https://eigen.tuxfamily.org/) (`brew install eigen` on macOS, `apt install libeigen3-dev` on Debian/Ubuntu)
 - `unified.cat` (LST catalog, included)
+- **OpenMP** (optional but recommended — see below)
+
+### OpenMP
+
+`gen_sugra_nhc_ext` and `gen_sugra_nhc_ext_phase2` parallelize their main
+enumeration loops with OpenMP. Speedup is roughly 3–4× on an 8-thread machine
+with output bit-exactly preserved relative to the serial run.
+
+| Platform | Default compiler | OpenMP support |
+|----------|------------------|----------------|
+| Linux (gcc) | `g++` | built-in `-fopenmp` |
+| macOS (Homebrew gcc or LLVM) | `g++-13`/`clang++` | built-in `-fopenmp` |
+| macOS (Apple Clang) | `g++` (clang shim) | needs Homebrew `libomp` (`brew install libomp`) |
+
+The Makefile auto-detects which mode applies. If neither is present, it
+prints a warning and falls back to a serial build (no functional change,
+just slower).
 
 ## Build
 
@@ -19,6 +36,29 @@ If Eigen3 is in a non-standard location:
 ```bash
 make EIGEN=/path/to/eigen3
 ```
+
+Control the thread count at run time with `OMP_NUM_THREADS` (e.g.,
+`OMP_NUM_THREADS=8 ./run_pipeline.sh 0 10`). Defaults to the number of
+hardware threads.
+
+### OpenMP-aware wrapper scripts
+
+For convenience, two extra wrappers take the thread count as an argument:
+
+```bash
+./run_pipeline_omp.sh     T_MIN T_MAX [N_THREADS]
+./run_pipeline_su2_omp.sh T_MIN T_MAX [N_THREADS]
+```
+
+Examples (useful when sharing a server):
+
+```bash
+./run_pipeline_omp.sh 0 10 8        # T=0..10, 8 threads
+./run_pipeline_omp.sh 21 30 32      # T=21..30, 32 threads
+./run_pipeline_su2_omp.sh 0 10 16   # same as run_pipeline_su2.sh, 16 threads
+```
+
+If `N_THREADS` is omitted, OpenMP picks the default (all hardware threads).
 
 ## Quick Run
 
