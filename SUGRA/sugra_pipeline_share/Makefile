@@ -1,6 +1,24 @@
 CXX      = g++
 CXXFLAGS = -std=c++17 -O2 -I.
 
+# OpenMP — try plain -fopenmp first (gcc, Homebrew LLVM); fall back to Homebrew libomp
+# on Apple Clang where -fopenmp is not directly supported.
+ifeq ($(shell $(CXX) -fopenmp -dM -E -x c++ /dev/null > /dev/null 2>&1 && echo yes),yes)
+  OMP_CXXFLAGS = -fopenmp
+  OMP_LDFLAGS  = -fopenmp
+else ifneq ($(wildcard /opt/homebrew/opt/libomp/lib/libomp.dylib),)
+  OMP_CXXFLAGS = -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include
+  OMP_LDFLAGS  = -L/opt/homebrew/opt/libomp/lib -lomp
+else ifneq ($(wildcard /usr/local/opt/libomp/lib/libomp.dylib),)
+  OMP_CXXFLAGS = -Xpreprocessor -fopenmp -I/usr/local/opt/libomp/include
+  OMP_LDFLAGS  = -L/usr/local/opt/libomp/lib -lomp
+else
+  $(warning OpenMP not detected — building serial.)
+  OMP_CXXFLAGS =
+  OMP_LDFLAGS  =
+endif
+CXXFLAGS += $(OMP_CXXFLAGS)
+
 # Auto-detect Eigen3 path
 # macOS (Homebrew Apple Silicon)
 ifneq ($(wildcard /opt/homebrew/include/eigen3),)
@@ -18,7 +36,7 @@ ifdef EIGEN
   CXXFLAGS += -I$(EIGEN)
 endif
 
-LDFLAGS  =
+LDFLAGS  = $(OMP_LDFLAGS)
 
 # Common object files (shared across all phases)
 COMMON_SRC = Tensor.C TopoLineCompact_enhanced.cpp Topology_enhanced.cpp

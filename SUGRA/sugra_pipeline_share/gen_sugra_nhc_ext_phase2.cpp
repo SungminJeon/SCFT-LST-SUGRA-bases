@@ -13,6 +13,9 @@ static bool g_det_sq_mode = false;
 static bool g_save_nonsugra = false;
 static bool g_no_su2 = false;
 static bool g_no_223 = false;
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 #include <fstream>
 #include <cstdlib>
 #include <set>
@@ -118,6 +121,11 @@ struct CatEntry {
 };
 
 static std::vector<CatEntry>* g_nonsugra_results = nullptr;
+#ifdef _OPENMP
+// Each OpenMP thread points g_nonsugra_results to its own thread-local nonsugra
+// vector; main thread merges after the parallel region.
+#pragma omp threadprivate(g_nonsugra_results)
+#endif
 
 // NHC cluster curve → actual gauge cc
 inline double nhc_curve_cc(const std::string& tag, int ext_si, int int_num, int target_si = -1) {
@@ -1025,31 +1033,60 @@ int main(int argc, char* argv[]) {
     int tried_mix = 0, passed_mix = 0;
 
     std::vector<CatEntry> nonsugra;
-    if (g_save_nonsugra) g_nonsugra_results = &nonsugra;
 
-    for (size_t ei = 0; ei < input_entries.size(); ei++) {
-        auto& entry = input_entries[ei];
-        g_current_base_T = (int)entry.final_IF.rows() - (int)entry.externals.size();
+    const int n_in = (int)input_entries.size();
+#ifdef _OPENMP
+    const int nthreads = omp_get_max_threads();
+#else
+    const int nthreads = 1;
+#endif
+    std::vector<std::vector<CatEntry>> tl_results(nthreads);
+    std::vector<std::vector<CatEntry>> tl_nonsugra(nthreads);
 
-        // Single-curve externals (no ordering constraint — try all specs)
-        for (auto& spec : all_specs) {
-            if (g_no_su2 && spec.ext_si == -2 && spec.target_si == -1 && !spec.is_hat1) continue;
-            attach_single(entry, spec, cc_budget, results, tried_single, passed_single);
-            attach_v6_multi(entry, spec, cc_budget, results, tried_v6, passed_v6);
+#pragma omp parallel \
+    reduction(+:tried_single,passed_single,tried_v6,passed_v6,tried_nhc,passed_nhc,tried_mix,passed_mix)
+    {
+#ifdef _OPENMP
+        const int tid = omp_get_thread_num();
+#else
+        const int tid = 0;
+#endif
+        // Each thread's nonsugra pointer goes to its own thread-local vector.
+        if (g_save_nonsugra) g_nonsugra_results = &tl_nonsugra[tid];
+
+#pragma omp for schedule(dynamic, 8)
+        for (int ei = 0; ei < n_in; ei++) {
+            auto& entry = input_entries[ei];
+            g_current_base_T = (int)entry.final_IF.rows() - (int)entry.externals.size();
+            auto& my_res = tl_results[tid];
+
+            for (auto& spec : all_specs) {
+                if (g_no_su2 && spec.ext_si == -2 && spec.target_si == -1 && !spec.is_hat1) continue;
+                attach_single(entry, spec, cc_budget, my_res, tried_single, passed_single);
+                attach_v6_multi(entry, spec, cc_budget, my_res, tried_v6, passed_v6);
+            }
+
+            attach_mixed_multi(entry, cc_budget, my_res, tried_mix, passed_mix);
+
+            for (auto& ns : nhc_cluster_specs) {
+                if (g_no_223 && ns.tag == "nhc_2_2_3") continue;
+                attach_nhc_cluster(entry, ns, cc_budget, my_res, tried_nhc, passed_nhc);
+            }
         }
+    }
 
-        // Mixed multi-target (all variants: su2n3mix, su8mix, su3n2mix, so16n2mix, so7, so7mix)
-        attach_mixed_multi(entry, cc_budget, results, tried_mix, passed_mix);
-
-        // NHC cluster externals
-        for (auto& ns : nhc_cluster_specs) {
-            if (g_no_223 && ns.tag == "nhc_2_2_3") continue;
-            attach_nhc_cluster(entry, ns, cc_budget, results, tried_nhc, passed_nhc);
-        }
-
-        if ((ei + 1) % 500 == 0)
-            std::cout << "  processed " << (ei + 1) << "/" << input_entries.size()
-                      << " entries, results so far: " << results.size() << "\n";
+    // Merge thread-local results into main vectors.
+    size_t total_res = 0, total_ns = 0;
+    for (auto& v : tl_results) total_res += v.size();
+    for (auto& v : tl_nonsugra) total_ns += v.size();
+    results.reserve(total_res);
+    for (auto& v : tl_results) for (auto& r : v) results.push_back(std::move(r));
+    tl_results.clear();
+    if (g_save_nonsugra) {
+        nonsugra.reserve(total_ns);
+        for (auto& v : tl_nonsugra) for (auto& r : v) nonsugra.push_back(std::move(r));
+        tl_nonsugra.clear();
+        g_nonsugra_results = &nonsugra;  // restore main pointer for any post-loop usage
     }
 
     std::cout << "\nSingle-target:    tried=" << tried_single << ", passed=" << passed_single << "\n"

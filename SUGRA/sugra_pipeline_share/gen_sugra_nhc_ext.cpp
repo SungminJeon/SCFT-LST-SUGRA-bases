@@ -1,4 +1,7 @@
 // gen_sugra_nhc_ext.cpp — NHC cluster external attachment
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 //
 // Attaches multi-curve NHC clusters (e.g., -2-3, -2-3-2, -2-2-3) as externals
 // to LST bases. Each curve in the NHC connects to base curve(s).
@@ -221,17 +224,42 @@ int main(int argc, char* argv[]) {
         std::cout.flush();
 
         int ne = (int)nhc_spec.self_ints.size();
-        std::set<std::string> seen;          // SUGRA dedup
-        std::set<std::string> nonsugra_seen; // non-SUGRA dedup (separate so cospectral pairs aren't merged)
         std::vector<NHCExtResult> results;
         std::vector<NHCExtResult> nonsugra_results;
 
-        for (size_t ci = 0; ci < catalog.size(); ci++) {
+#ifdef _OPENMP
+        const int n_threads_omp = omp_get_max_threads();
+#else
+        const int n_threads_omp = 1;
+#endif
+        // Per-thread accumulators. Dedup key includes catalog_id (cid), so keys
+        // produced by different entries can't collide across threads — local
+        // sets are sufficient.
+        std::vector<std::vector<NHCExtResult>> tl_results(n_threads_omp);
+        std::vector<std::vector<NHCExtResult>> tl_nonsugra(n_threads_omp);
+        std::vector<std::set<std::string>> tl_seen(n_threads_omp);
+        std::vector<std::set<std::string>> tl_nonsugra_seen(n_threads_omp);
+
+        const int n_cat = (int)catalog.size();
+#pragma omp parallel for schedule(dynamic, 4)
+        for (int ci = 0; ci < n_cat; ci++) {
             if (!cached_ifs[ci].valid) continue;
             auto& entry = catalog[ci];
             auto& base_IF = cached_ifs[ci].IF;
             int nb = base_IF.rows();
-            g_current_base_T = nb;  // LST curve count for --use-lst-T
+            g_current_base_T = nb;  // LST curve count for --use-lst-T (threadprivate)
+
+            // Bind the per-thread accumulators so the enumerate lambda below
+            // (which captures by reference) writes into thread-local storage.
+#ifdef _OPENMP
+            const int tid = omp_get_thread_num();
+#else
+            const int tid = 0;
+#endif
+            auto& seen = tl_seen[tid];
+            auto& nonsugra_seen = tl_nonsugra_seen[tid];
+            auto& results = tl_results[tid];
+            auto& nonsugra_results = tl_nonsugra[tid];
 
             // Find (-1) curves with cc budget room + (-2) curves as targets
             std::vector<int> m1_curves;  // (-1) with cc room
@@ -472,7 +500,21 @@ int main(int argc, char* argv[]) {
 
             std::vector<std::vector<std::pair<int,int>>> assignment;
             enumerate(0, assignment);
-        }
+        }  // end parallel for over ci
+
+        // Merge thread-local accumulators into the per-nhc_spec result vectors.
+        // dedup keys include catalog_id, so no cross-thread duplicates here.
+        size_t total_sugra = 0, total_ns = 0;
+        for (auto& v : tl_results) total_sugra += v.size();
+        for (auto& v : tl_nonsugra) total_ns += v.size();
+        results.reserve(total_sugra);
+        nonsugra_results.reserve(total_ns);
+        for (auto& v : tl_results) for (auto& r : v) results.push_back(std::move(r));
+        for (auto& v : tl_nonsugra) for (auto& r : v) nonsugra_results.push_back(std::move(r));
+        tl_results.clear();
+        tl_nonsugra.clear();
+        tl_seen.clear();
+        tl_nonsugra_seen.clear();
 
         // Sort
         std::sort(results.begin(), results.end(),

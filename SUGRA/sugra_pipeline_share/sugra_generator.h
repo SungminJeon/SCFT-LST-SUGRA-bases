@@ -720,6 +720,11 @@ struct AnomalyResult {
 // Global flags for LST-T mode
 static bool g_use_lst_T = false;
 static int g_current_base_T = 0;
+#ifdef _OPENMP
+// g_current_base_T mutates per entry; threadprivate so each OpenMP thread keeps its own.
+// g_use_lst_T is set once before parallel regions (read-only inside) — no threadprivate needed.
+#pragma omp threadprivate(g_current_base_T)
+#endif
 
 inline AnomalyResult compute_anomaly(const Eigen::MatrixXi& IF, const NHCResult& nhc) {
     AnomalyResult a;
