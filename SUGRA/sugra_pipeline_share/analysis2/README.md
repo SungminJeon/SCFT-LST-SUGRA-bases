@@ -165,60 +165,124 @@ Legal `tag` strings for the external curve list. They are accepted by
 `find_containing_tag("…")`. The same tag vocabulary is used in every
 decade.
 
+All counts below are measured on the **T1-10** group as loaded by
+`load_catalog` (i.e. only the canonical sub-catalogs
+`cat_phase1_nhc_merged_*` and `cat_nhc_ext_nhc_ext_unified_*sext`).
+Total: **9,566,360 bases**. `#bases` means
+"number of base entries that contain at least one external with the
+given tag" (an entry with the same tag twice is still counted once).
+
 ### 1) Simple Lie-algebra externals
 
 `extSI` is the value stored in `entry.externals[i]["extSI"]`.
 
-| tag    | extSI | count in T1-10 |
-|--------|-------|---------------:|
-| `su2`  |  −2   | 19,554,204 |
-| `su3`  |  −3   |  5,049,682 |
-| `so8`  |  −4   |  1,130,132 |
-| `f4`   |  −5   |    409,935 |
-| `e6`   |  −6   |    299,886 |
-| `e7p`  |  −7   |    138,451 |
-| `e7`   |  −8   |    146,737 |
-| `e8`   | −12   |     41,882 |
+| tag    | extSI | #bases    | %     |
+|--------|:-----:|----------:|------:|
+| `su2`  |  −2   | 8,920,079 | 93.24 |
+| `su3`  |  −3   | 4,012,697 | 41.95 |
+| `so8`  |  −4   | 1,083,753 | 11.33 |
+| `f4`   |  −5   |   404,213 |  4.23 |
+| `e6`   |  −6   |   298,127 |  3.12 |
+| `e7p`  |  −7   |   138,198 |  1.44 |
+| `e7`   |  −8   |   146,483 |  1.53 |
+| `e8`   | −12   |    41,815 |  0.44 |
 
 ### 2) Mixed / special embeddings
 
 Trailing `n<k>` denotes the attachment multiplicity; `mix` marks a
 configuration that mixes two simple factors.
 
-| tag         | count       | meaning |
-|-------------|------------:|---------|
-| `su2n3`     | 1,930,460   | su2 external with n=3 attachment |
-| `su2n3mix`  | 3,199,526   | su2 external, n=3, mixed embedding |
-| `su3n2`     |   204,426   | su3 external with n=2 attachment |
-| `su3n2mix`  |    38,306   | su3 external, n=2, mixed embedding |
-| `so7`       |       815   | so7 external |
-| `so7mix`    |        63   | so7 external, mixed embedding |
-| `su8`       |        15   | su8 external |
-| `so16n2`    |         5   | so16 external with n=2 attachment |
+| tag         | #bases    | %     | meaning |
+|-------------|----------:|------:|---------|
+| `su2n3mix`  | 2,762,458 | 28.88 | su2 external, n=3, mixed embedding |
+| `su2n3`     | 1,714,072 | 17.92 | su2 external with n=3 attachment |
+| `su3n2`     |   202,399 |  2.12 | su3 external with n=2 attachment |
+| `su3n2mix`  |    38,299 |  0.40 | su3 external, n=2, mixed embedding |
+| `so7`       |       815 |  0.01 | so7 external |
+| `so7mix`    |        63 | <0.01 | so7 external, mixed embedding |
+| `su8`       |         9 | <0.01 | su8 external |
+| `so16n2`    |         3 | <0.01 | so16 external with n=2 attachment |
 
 ### 3) Non-Higgsable clusters (glued in as one external unit)
 
 The number suffix encodes the self-intersection sequence of the
 cluster's curves.
 
-| tag         | cluster      | gauge algebra      | count     |
-|-------------|--------------|--------------------|----------:|
-| `nhc_2_3`   | (−2,−3)      | su2 + g2           | 3,590,790 |
-| `nhc_2_3_2` | (−2,−3,−2)   | su2 + so7 + su2    | 1,229,964 |
-| `nhc_2_2_3` | (−2,−2,−3)   | sp1 + g2           |   562,974 |
+| tag         | cluster      | gauge algebra      | #bases    | %     |
+|-------------|--------------|--------------------|----------:|------:|
+| `nhc_2_3`   | (−2,−3)      | su2 + g2           | 1,699,729 | 17.77 |
+| `nhc_2_3_2` | (−2,−3,−2)   | su2 + so7 + su2    |   396,287 |  4.14 |
+| `nhc_2_2_3` | (−2,−2,−3)   | sp1 + g2           |   184,442 |  1.93 |
 
 ### 4) Hat-1 externals (isHat1 = 1)
 
+(−1)-curves used in the hat-1 / unhiggsing construction.
 
-| tag       | count |
-|-----------|------:|
-| `hat1m1`  |  459  |
-| `hat1m2`  |    9  |
+| tag       | #bases | %     |
+|-----------|-------:|------:|
+| `hat1m1`  |   425  | <0.01 |
+| `hat1m2`  |     6  | <0.01 |
+
+### 5) Top external combinations
+
+`#bases` here counts bases whose **complete** external multiset
+equals the given combo (order-independent).
+
+| rank | combo                          | #bases  |   %  |
+|-----:|--------------------------------|--------:|-----:|
+|    1 | `su2+su2+su2`                  | 436,286 | 4.56 |
+|    2 | `su2+su2+su3`                  | 403,455 | 4.22 |
+|    3 | `su2+su2+su2+su3`              | 349,216 | 3.65 |
+|    4 | `su2+su2+su2+su2`              | 298,056 | 3.12 |
+|    5 | `su2+su2+su2n3mix`             | 291,670 | 3.05 |
+|    6 | `su2+su2`                      | 263,848 | 2.76 |
+|    7 | `nhc_2_3+nhc_2_3+su2+su2`      | 238,630 | 2.49 |
+|    8 | `su2+su2+su2+su2n3mix`         | 202,363 | 2.12 |
+|    9 | `su2+su2+su2n3mix+su3`         | 182,733 | 1.91 |
+|   10 | `su2+su2n3mix+su3`             | 168,209 | 1.76 |
+|   11 | `nhc_2_3+nhc_2_3+su2`          | 153,241 | 1.60 |
+|   12 | `su2+su2+su3+su3`              | 150,953 | 1.58 |
+|   13 | `su2+su3`                      | 145,466 | 1.52 |
+|   14 | `su2+su2+su2+su2n3`            | 133,733 | 1.40 |
+|   15 | `su2+su2+su2+su2+su3`          | 126,052 | 1.32 |
+|   16 | `su2`                          | 122,296 | 1.28 |
+|   17 | `so8+su2+su2`                  | 122,240 | 1.28 |
+|   18 | `su2+su2n3mix`                 | 121,027 | 1.27 |
+|   19 | `nhc_2_3+nhc_2_3+su2+su2+su2`  | 120,940 | 1.26 |
+|   20 | `nhc_2_3+nhc_2_3+su2+su3`      | 115,819 | 1.21 |
+|   21 | `su2+su3+su3`                  | 110,094 | 1.15 |
+|   22 | `su2+su2+su2n3+su3`            | 101,009 | 1.06 |
+|   23 | `nhc_2_3+nhc_2_3+su2+su2+su3`  |  94,864 | 0.99 |
+|   24 | `su2+su2+su2+su2+su2`          |  93,671 | 0.98 |
+|   25 | `su2+su2+su2n3`                |  92,663 | 0.97 |
+|   26 | `nhc_2_3+nhc_2_3+su2+su2n3mix` |  87,681 | 0.92 |
+|   27 | `so8+su2+su2+su2`              |  86,285 | 0.90 |
+|   28 | `su2+su2n3mix+su2n3mix`        |  79,611 | 0.83 |
+|   29 | `su2+su2+su2n3+su2n3mix`       |  79,286 | 0.83 |
+|   30 | `su2+su2+su2+su3+su3`          |  73,209 | 0.77 |
+
+The full T1-10 catalog contains **4,026** distinct external
+multisets. The top 30 above cover **45.8 %** of all bases.
+
+### 6) Distribution by number of externals
+
+| #externals | #bases    |   %  |
+|-----------:|----------:|-----:|
+|          1 |   135,070 |  1.4 |
+|          2 |   764,994 |  8.0 |
+|          3 | 2,640,042 | 27.6 |
+|          4 | 3,317,646 | 34.7 |
+|          5 | 1,940,934 | 20.3 |
+|          6 |   625,118 |  6.5 |
+|          7 |   126,050 |  1.3 |
+|          8 |    15,518 |  0.2 |
+|          9 |       975 | <0.1 |
+|         10 |        13 | <0.1 |
 
 ### Sample query
 
 ```python
-# A specific configuration: two NHC clusters glued to an LST with one external su2
+# A specific configuration: two NHC clusters glued to an LST with one extra su2
 pick_bases(entries, externals=["nhc_2_3", "nhc_2_3", "su2"])
 ```
 

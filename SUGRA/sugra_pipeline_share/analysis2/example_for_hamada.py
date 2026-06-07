@@ -30,55 +30,61 @@ The strings below are the legal `tag` values you can pass to
     find_by_combo (entries, "tag1+tag2+...")   # exact "+"-joined string
     find_containing_tag(entries, "tag")       # at least one occurrence
 
-Counts are from the T1-10 catalog group (T_H = 2..10); the same tag
-vocabulary is used in every other decade.
+Counts below are from the **T1-10** group as loaded by `load_catalog`
+(canonical sub-catalogs only). Total bases: 9,566,360.
+`#bases` = "number of base entries that contain at least one external
+with this tag" (a base whose externals repeat a tag is counted once).
+The same tag vocabulary is used in every decade.
 
-  (1) Simple Lie-algebra externals.  extSI is the self-intersection of
-      the external curve 
+  (1) Simple Lie-algebra externals. `extSI` is the value stored in
+      `entry.externals[i]["extSI"]`.
 
-        tag      extSI    count in T1-10
-        ----     -----    --------------
-        su2       -2      19,554,204
-        su3       -3       5,049,682
-        so8       -4       1,130,132
-        f4        -5         409,935
-        e6        -6         299,886
-        e7p       -7         138,451       (e7 "prime" / broken e7)
-        e7        -8         146,737
-        e8       -12          41,882
+        tag      extSI    #bases        %
+        ----     -----    ---------   -----
+        su2       -2      8,920,079   93.24
+        su3       -3      4,012,697   41.95
+        so8       -4      1,083,753   11.33
+        f4        -5        404,213    4.23
+        e6        -6        298,127    3.12
+        e7p       -7        138,198    1.44   (e7 "prime" / broken e7)
+        e7        -8        146,483    1.53
+        e8       -12         41,815    0.44
 
   (2) Mixed / special embeddings.  The trailing "n<k>" denotes the
       attachment multiplicity of the external curve, and "mix" marks a
       configuration that mixes two simple factors.
 
-        tag         count       meaning
-        ----        -------     -------
-        su2n3      1,930,460    su2 external with n=3 attachment
-        su2n3mix   3,199,526    su2 external, n=3, mixed embedding
-        su3n2        204,426    su3 external with n=2 attachment
-        su3n2mix      38,306    su3 external, n=2, mixed embedding
-        so7              815    so7 external
-        so7mix            63    so7 external, mixed embedding
-        su8               15    su8 external
-        so16n2             5    so16 external with n=2 attachment
+        tag         #bases       %    meaning
+        ----        ---------  -----  -------
+        su2n3mix    2,762,458  28.88  su2 ext, n=3, mixed embedding
+        su2n3       1,714,072  17.92  su2 ext with n=3 attachment
+        su3n2         202,399   2.12  su3 ext with n=2 attachment
+        su3n2mix       38,299   0.40  su3 ext, n=2, mixed embedding
+        so7               815   0.01  so7 external
+        so7mix             63  <0.01  so7 external, mixed embedding
+        su8                 9  <0.01  su8 external
+        so16n2              3  <0.01  so16 ext with n=2 attachment
 
   (3) Non-Higgsable clusters (NHC) glued in as a single external unit.
       The number suffix encodes the self-intersection sequence of the
       cluster's component curves.
 
-        tag           cluster        gauge algebra        count
-        ----          -------        -------------        -----
-        nhc_2_3       (-2,-3)         su2 + g2          3,590,790
-        nhc_2_3_2     (-2,-3,-2)      su2 + so7 + su2   1,229,964
-        nhc_2_2_3     (-2,-2,-3)      sp1 + g2            562,974
+        tag           cluster        gauge algebra        #bases
+        ----          -------        -------------        ---------
+        nhc_2_3       (-2,-3)         su2 + g2            1,699,729
+        nhc_2_3_2     (-2,-3,-2)      su2 + so7 + su2       396,287
+        nhc_2_2_3     (-2,-2,-3)      sp1 + g2              184,442
 
   (4) Hat-1 externals (isHat1 = 1).  These are (-1)-curves used in the
       hat-1 / unhiggsing construction.
 
-        tag       count
-        ----      -----
-        hat1m1     459
-        hat1m2       9
+        tag       #bases
+        ----      ------
+        hat1m1     425
+        hat1m2       6
+
+  See README.md for the top-30 combination ranking and the
+  per-#externals distribution.
 
 USAGE EXAMPLES
 --------------
