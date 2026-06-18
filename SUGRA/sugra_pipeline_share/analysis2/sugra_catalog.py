@@ -49,6 +49,14 @@ EXT_SI_TO_GAUGE = {
 # ── Entry data class ────────────────────────────────────────────────────
 @dataclass
 class Entry:
+    """One SUGRA base.
+
+    The intersection form is stored internally as `_IF`. Read it through
+    the `IF` property, which always returns a *fresh copy* so that
+    downstream numpy mutations cannot poison the catalog. The same
+    applies to `lst_if(entry)` further below.
+    """
+
     id: int = 0
     combo: str = ""
     externals: list[dict] = field(default_factory=list)
@@ -63,9 +71,18 @@ class Entry:
     sig_pos: int = 0
     sig_neg: int = 0
     sig_zero: int = 0
-    IF: np.ndarray = field(default_factory=lambda: np.zeros((0, 0), dtype=np.int64))
+    _IF: np.ndarray = field(default_factory=lambda: np.zeros((0, 0), dtype=np.int64))
     remaining: list[dict] = field(default_factory=list)
     source: str = ""  # which file/zip the entry came from
+
+    @property
+    def IF(self) -> np.ndarray:
+        """Extended-base intersection form. Always returns a fresh copy."""
+        return self._IF.copy()
+
+    @IF.setter
+    def IF(self, value: np.ndarray) -> None:
+        self._IF = np.asarray(value, dtype=np.int64)
 
     @property
     def ext_tags(self) -> list[str]:
@@ -212,6 +229,56 @@ def t_min(IF: np.ndarray, h1: Iterable[int] = ()) -> int | None:
 def entry_t_min(e: Entry) -> int | None:
     h1 = [x["curveIdx"] for x in e.externals if x.get("isHat1")]
     return t_min(e.IF, h1)
+
+
+# ── LST recovery ────────────────────────────────────────────────────────
+def lst_if(e: Entry) -> np.ndarray:
+    """Underlying LST intersection form: drop all external rows/cols.
+
+    The entry's `IF` is the *extended* base (LST + glued externals).
+    Removing the external curves leaves the LST's own IF matrix, which
+    is shared by every entry that has the same (catalog_type, base_t,
+    catalog_id) triple. Returns a fresh copy (safe to mutate)."""
+    ext = set(e.ext_indices())
+    n = e._IF.shape[0]
+    keep = [i for i in range(n) if i not in ext]
+    return np.ascontiguousarray(e._IF[np.ix_(keep, keep)])
+
+
+def lst_key(e: Entry) -> tuple[str, int, int]:
+    """A (catalog_type, base_t, catalog_id) tuple that uniquely
+    identifies the underlying LST. Use this as a dict key to group
+    entries by LST."""
+    return (e.catalog_type, e.base_t, e.catalog_id)
+
+
+def group_by_lst(entries: list[Entry]) -> dict[tuple[str, int, int], list[Entry]]:
+    """Bucket entries by their underlying LST."""
+    out: dict[tuple[str, int, int], list[Entry]] = {}
+    for e in entries:
+        out.setdefault(lst_key(e), []).append(e)
+    return out
+
+
+def find_by_lst(
+    entries: list[Entry],
+    catalog_type: str,
+    base_t: int | None = None,
+    catalog_id: int | None = None,
+) -> list[Entry]:
+    """All entries living on a specific LST. base_t / catalog_id can be
+    left as None to widen the match (e.g. all DM:A(3) bases regardless
+    of catalog_id)."""
+    out = []
+    for e in entries:
+        if e.catalog_type != catalog_type:
+            continue
+        if base_t is not None and e.base_t != base_t:
+            continue
+        if catalog_id is not None and e.catalog_id != catalog_id:
+            continue
+        out.append(e)
+    return out
 
 
 # ── Discovery helpers ───────────────────────────────────────────────────

@@ -27,64 +27,44 @@ EXTERNAL TAG REFERENCE
 The strings below are the legal `tag` values you can pass to
 
     pick_bases(entries, externals=[...])      # multiset, order-independent
-    find_by_combo (entries, "tag1+tag2+...")   # exact "+"-joined string
+    find_by_combo (entries, "tag1+tag2+...")  # exact "+"-joined string
     find_containing_tag(entries, "tag")       # at least one occurrence
 
-Counts below are from the **T1-10** group as loaded by `load_catalog`
-(canonical sub-catalogs only). Total bases: 9,566,360.
-`#bases` = "number of base entries that contain at least one external
-with this tag" (a base whose externals repeat a tag is counted once).
-The same tag vocabulary is used in every decade.
+  Simple Lie-algebra externals (extSI = value in entry.externals[i]["extSI"]):
+    su2   (-2)    su3 (-3)    so8 (-4)    f4 (-5)
+    e6    (-6)    e7p (-7)    e7  (-8)    e8 (-12)
 
-  (1) Simple Lie-algebra externals. `extSI` is the value stored in
-      `entry.externals[i]["extSI"]`.
+  Mixed / special embeddings:
+    su2n3, su2n3mix, su3n2, su3n2mix, so7, so7mix, su8, so16n2
+    -- trailing "n<k>" = attachment multiplicity; "mix" = mixed embedding.
 
-        tag      extSI    #bases        %
-        ----     -----    ---------   -----
-        su2       -2      8,920,079   93.24
-        su3       -3      4,012,697   41.95
-        so8       -4      1,083,753   11.33
-        f4        -5        404,213    4.23
-        e6        -6        298,127    3.12
-        e7p       -7        138,198    1.44   (e7 "prime" / broken e7)
-        e7        -8        146,483    1.53
-        e8       -12         41,815    0.44
+  Non-Higgsable clusters (glued in as one external unit):
+    nhc_2_3      = (-2,-3) cluster        (gauge: su2 + g2)
+    nhc_2_3_2    = (-2,-3,-2) cluster     (gauge: su2 + so7 + su2)
+    nhc_2_2_3    = (-2,-2,-3) cluster     (gauge: sp1 + g2)
 
-  (2) Mixed / special embeddings.  The trailing "n<k>" denotes the
-      attachment multiplicity of the external curve, and "mix" marks a
-      configuration that mixes two simple factors.
+  Hat-1 externals (isHat1 = 1):
+    hat1m1, hat1m2
 
-        tag         #bases       %    meaning
-        ----        ---------  -----  -------
-        su2n3mix    2,762,458  28.88  su2 ext, n=3, mixed embedding
-        su2n3       1,714,072  17.92  su2 ext with n=3 attachment
-        su3n2         202,399   2.12  su3 ext with n=2 attachment
-        su3n2mix       38,299   0.40  su3 ext, n=2, mixed embedding
-        so7               815   0.01  so7 external
-        so7mix             63  <0.01  so7 external, mixed embedding
-        su8                 9  <0.01  su8 external
-        so16n2              3  <0.01  so16 ext with n=2 attachment
+CATALOG STATISTICS (T1-10, 9,566,360 bases total)
+-------------------------------------------------
+"Base count" = number of distinct base entries matching the row.
+Counts are configuration-based, not "contains at least one tag".
 
-  (3) Non-Higgsable clusters (NHC) glued in as a single external unit.
-      The number suffix encodes the self-intersection sequence of the
-      cluster's component curves.
+  By T_H:
+    T_H= 2:   160,773    T_H= 3: 1,064,708    T_H= 4: 1,793,609
+    T_H= 5: 1,808,446    T_H= 6: 1,278,650    T_H= 7: 1,218,321
+    T_H= 8: 1,033,171    T_H= 9:   673,698    T_H=10:   534,984
 
-        tag           cluster        gauge algebra        #bases
-        ----          -------        -------------        ---------
-        nhc_2_3       (-2,-3)         su2 + g2            1,699,729
-        nhc_2_3_2     (-2,-3,-2)      su2 + so7 + su2       396,287
-        nhc_2_2_3     (-2,-2,-3)      sp1 + g2              184,442
+  By number of externals:
+    1: 135,070  | 2:   764,994 | 3: 2,640,042 | 4: 3,317,646
+    5: 1,940,934| 6:   625,118 | 7:   126,050 | 8:    15,518
+    9:     975 | 10:       13
 
-  (4) Hat-1 externals (isHat1 = 1).  These are (-1)-curves used in the
-      hat-1 / unhiggsing construction.
-
-        tag       #bases
-        ----      ------
-        hat1m1     425
-        hat1m2       6
-
-  See README.md for the top-30 combination ranking and the
-  per-#externals distribution.
+  By external configuration (complete multiset): 4,026 distinct combos.
+  Top 5: su2+su2+su2 (436,286), su2+su2+su3 (403,455),
+         su2+su2+su2+su3 (349,216), su2+su2+su2+su2 (298,056),
+         su2+su2+su2n3mix (291,670).  See README.md for the full top-30.
 
 USAGE EXAMPLES
 --------------
@@ -106,8 +86,12 @@ import time
 from sugra_catalog import (
     entry_t_min,
     find_by_combo,
+    find_by_lst,
     find_containing_tag,
+    group_by_lst,
     load_catalog,
+    lst_if,
+    lst_key,
     pick_bases,
     show_entry,
     show_if,
@@ -136,27 +120,53 @@ def main():
     print(f"loaded {len(entries)} entries in {time.time()-t0:.1f}s")
 
     # ─── 2. Entry anatomy ──────────────────────────────────────────────
-    # Each element is a `sugra_catalog.Entry` dataclass with these attributes:
+    # Each element is a `sugra_catalog.Entry` dataclass:
     #   id            - catalog-local identifier
     #   combo         - "+"-joined external tag string (e.g. "e6+su3")
     #   externals     - list of dicts: {curveIdx, specId, tag, extSI, targetSI,
     #                                    intNum, isHat1}
     #   catalog_id    - sub-catalog numeric id
-    #   catalog_type  - human-readable LST label
+    #   catalog_type  - LST family label ("NN", "DM:A(3)", ...)
     #   base_t        - T_H
     #   T             - sig_neg of the extended base
     #   Hc, V, Hn     - hypers (charged), vectors, hypers (neutral)
     #   det           - det of IF
     #   sig_pos / sig_neg / sig_zero  - IF signature
-    #   IF            - numpy ndarray of the intersection form
+    #   IF            - extended-base intersection form (numpy ndarray).
+    #                   Reading entry.IF always returns a fresh COPY, so
+    #                   mutating it cannot poison the catalog.
     #   remaining     - residue curve list
     #   source        - originating .cat path (useful for debugging)
     e = entries[0]
-    print("\nfirst entry keys:", list(vars(e).keys()))
     print(show_entry(e))
 
     # ─── 3. Convenience selectors are methods on Entry ─────────────────
     print("\nfirst entry ext tags:", e.ext_tags, "  sorted:", e.ext_tag_set)
+
+    # ─── 3b. Intersection form & LST recovery ──────────────────────────
+    # `entry.IF` is the *extended* base (LST + glued externals).
+    # `lst_if(entry)` drops the external rows/cols, giving the underlying
+    # LST's own IF matrix.  Both return safe copies.
+    print(f"\nextended IF (shape {e.IF.shape}):")
+    print(show_if(e))
+    print(f"\nLST IF (shape {lst_if(e).shape}):")
+    print(lst_if(e))
+
+    # `lst_key(entry)` is the (catalog_type, base_t, catalog_id) tuple
+    # that uniquely identifies the underlying LST.  Entries sharing this
+    # key sit on the SAME base; only their externals differ.
+    print(f"\nLST key of first entry: {lst_key(e)}")
+
+    # Group all entries by their underlying LST:
+    groups = group_by_lst(entries)
+    print(f"distinct LSTs in this slice: {len(groups)}")
+    print("top 5 LSTs by entry count:")
+    for key, lst_entries in sorted(groups.items(), key=lambda kv: -len(kv[1]))[:5]:
+        print(f"  {key}  -> {len(lst_entries):>7,} entries")
+
+    # All entries sitting on DM:A(3), T_H=2:
+    on_a3 = find_by_lst(entries, "DM:A(3)", base_t=2)
+    print(f"\nDM:A(3), T_H=2 -> {len(on_a3):,} entries")
 
     # ─── 4. Pick by T_H ────────────────────────────────────────────────
     # All bases whose underlying LST has T_H = 3.
