@@ -13,9 +13,6 @@ static bool g_det_sq_mode = false;
 static bool g_save_nonsugra = false;
 static bool g_no_su2 = false;
 static bool g_no_223 = false;
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 #include <fstream>
 #include <cstdlib>
 #include <set>
@@ -26,6 +23,9 @@ static bool g_no_223 = false;
 #include <functional>
 #include <filesystem>
 #include <cassert>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 // ============================================================================
 // Types
@@ -116,9 +116,94 @@ struct CatEntry {
     int base_T;
     int T, H_charged, V, H_neutral, det, sig_pos, sig_neg, sig_zero;
     Eigen::MatrixXi final_IF;
+    // Sparse in-memory storage of the (symmetric, ~3.5%-dense) base IF for LOADED input
+    // entries: holds upper-triangle nonzeros as flat [i,j,v, i,j,v, ...]. final_IF is left
+    // empty until build_dense() reconstructs it just-in-time when the entry is processed,
+    // then free_dense() releases it. Cuts the huge chain input from ~17 GB to ~1 GB.
+    // Output entries (built during attach) keep a dense final_IF and leave if_n == 0.
+    int if_n = 0;
+    std::vector<int> if_nz;
+    void build_dense() {
+        if (if_n == 0) return;  // no sparse store → leave final_IF as-is
+        final_IF = Eigen::MatrixXi::Zero(if_n, if_n);
+        for (size_t k = 0; k + 2 < if_nz.size(); k += 3) {
+            int i = if_nz[k], j = if_nz[k + 1], v = if_nz[k + 2];
+            final_IF(i, j) = v;
+            if (i != j) final_IF(j, i) = v;
+        }
+    }
+    void free_dense() { if (if_n != 0) final_IF = Eigen::MatrixXi(); }
+    // Store a dense matrix sparsely. Used for OUTPUT entries so the accumulating chain
+    // results stay small in RAM; dedup/write reconstruct via build_dense() per entry.
+    void set_sparse_from(const Eigen::MatrixXi& M) {
+        if_n = (int)M.rows();
+        if_nz.clear();
+        for (int i = 0; i < if_n; i++)
+            for (int j = i; j < if_n; j++)
+                if (M(i, j) != 0) { if_nz.push_back(i); if_nz.push_back(j); if_nz.push_back(M(i, j)); }
+    }
     struct RemTarget { int curve_idx, self_int; double available_cc; };
     std::vector<RemTarget> remaining;
+    // Cached for true_c_ext: LST sub-IF kernel (= curves not in any external).
+    // Computed once per entry; reused by every attach function and every leaf.
+    // Empty vector means kernel undefined → filter is skipped per existing semantics.
+    std::vector<int> cached_lst_idx;
+    mutable Eigen::VectorXi cached_kernel;  // LST sub-IF null vector (JacobiSVD),
+    mutable bool kernel_ready = false;      // lazily computed (entry_kernel) in attach
+    mutable BaseSchur schur;           // base inertia + pseudo-inverse (lazily computed),
+    mutable bool schur_ready = false;  // skipped for chain entries that attach no candidate
 };
+
+// Populate cached_lst_idx and cached_kernel for an entry. Idempotent; safe to call
+// multiple times. Called once after entry is loaded / created.
+inline void populate_lst_cache(CatEntry& e) {
+    // Input entries store the IF sparsely (final_IF empty until build_dense); use if_n.
+    int n = e.if_n != 0 ? e.if_n : (int)e.final_IF.rows();
+    std::set<int> ext_set;
+    for (auto& ei : e.externals) ext_set.insert(ei.curve_idx);
+    e.cached_lst_idx.clear();
+    for (int i = 0; i < n; i++)
+        if (ext_set.count(i) == 0) e.cached_lst_idx.push_back(i);
+    // cached_kernel (JacobiSVD) and schur (eigendecomp) are deferred to entry_kernel /
+    // entry_schur on the first attach candidate. This moves the per-entry heavy linear
+    // algebra out of the SERIAL load loop into the PARALLEL attach region (≈Ncore speedup)
+    // and skips it entirely for entries that attach nothing — the dominant cost on the
+    // huge non-SUGRA chain input once parsing was made fast. Verified byte-identical &
+    // deterministic: each entry is owned by one OpenMP thread, and Eigen disables nested
+    // threading inside the parallel region, so concurrent on-demand decompositions are safe.
+}
+
+// Lazy per-entry LST sub-IF null vector (JacobiSVD), computed on first attach candidate.
+inline const Eigen::VectorXi& entry_kernel(const CatEntry& e) {
+    if (!e.kernel_ready) {
+        int m = (int)e.cached_lst_idx.size();
+        if (m == 0) { e.cached_kernel = Eigen::VectorXi(); }
+        else {
+            Eigen::MatrixXi A(m, m);
+            for (int i = 0; i < m; i++)
+                for (int j = 0; j < m; j++)
+                    A(i, j) = e.final_IF(e.cached_lst_idx[i], e.cached_lst_idx[j]);
+            e.cached_kernel = find_positive_integer_kernel(A);
+        }
+        e.kernel_ready = true;
+    }
+    return e.cached_kernel;
+}
+
+// Lazy per-entry base inertia + pseudo-inverse for schur_sig.
+inline const BaseSchur& entry_schur(const CatEntry& e) {
+    if (!e.schur_ready) { e.schur = precompute_base_schur(e.final_IF); e.schur_ready = true; }
+    return e.schur;
+}
+
+// Fast signature pre-filter via Schur complement against the cached base inertia
+// (O((z+k)³) vs O(n³) LDLT). Conservative threshold (1e-6) so a true sig_pos==1 is
+// never rejected; compute_sig_fast downstream stays authoritative. Mirrors the
+// reject condition of sig_pos_exceeds_one_fast (sig_pos>1 OR sig_neg>T_max).
+inline bool schur_reject(const BaseSchur& bs, const Eigen::MatrixXi& M, int T_max) {
+    SigInfo s = schur_sig(bs, M, 1e-6);
+    return s.sig_pos > 1 || s.sig_neg > T_max;
+}
 
 static std::vector<CatEntry>* g_nonsugra_results = nullptr;
 #ifdef _OPENMP
@@ -169,6 +254,24 @@ inline bool should_save_nonsugra(const AnomalyResult& anom, const std::vector<Ex
 // ============================================================================
 // I/O
 // ============================================================================
+
+// Fast whitespace-separated field parsing for the hot .cat load path. Per-line
+// std::istringstream (formatted >>) dominated load time when parsing the large
+// non-SUGRA chain input (5.5 GB / 234k entries at T=108: sample showed ~all time
+// in load_cat). These parse identical values, so catalog output stays byte-identical.
+inline const char* skip_ws(const char* p, const char* end) {
+    while (p < end && (*p == ' ' || *p == '\t' || *p == '\r')) ++p;
+    return p;
+}
+inline const char* fast_int(const char* p, const char* end, int& out) {
+    p = skip_ws(p, end);
+    bool neg = false;
+    if (p < end && (*p == '+' || *p == '-')) { neg = (*p == '-'); ++p; }
+    long v = 0;
+    while (p < end && *p >= '0' && *p <= '9') v = v * 10 + (*p++ - '0');
+    out = neg ? (int)(-v) : (int)v;
+    return p;
+}
 
 inline std::vector<CatEntry> load_cat(const std::string& path) {
     std::vector<CatEntry> entries;
@@ -222,22 +325,30 @@ inline std::vector<CatEntry> load_cat(const std::string& path) {
 
         std::getline(fin, line);
         int n = std::stoi(line.substr(3));
-        e.final_IF = Eigen::MatrixXi::Zero(n, n);
+        // Parse the dense IF text but store only upper-triangle nonzeros (sparse). final_IF
+        // is reconstructed on demand by build_dense() when the entry is processed.
+        e.if_n = n;
         for (int i = 0; i < n; i++) {
             std::getline(fin, line);
-            std::istringstream ss(line);
-            for (int j = 0; j < n; j++) ss >> e.final_IF(i, j);
+            const char* p = line.c_str(); const char* end = p + line.size();
+            for (int j = 0; j < n; j++) {
+                int v; p = fast_int(p, end, v);
+                if (v != 0 && i <= j) { e.if_nz.push_back(i); e.if_nz.push_back(j); e.if_nz.push_back(v); }
+            }
         }
         std::getline(fin, line);
         int nr = std::stoi(line.substr(10));
         for (int i = 0; i < nr; i++) {
             std::getline(fin, line);
-            std::istringstream ss(line);
+            const char* p = line.c_str(); const char* end = p + line.size();
             CatEntry::RemTarget rt;
-            ss >> rt.curve_idx >> rt.self_int >> rt.available_cc;
+            p = fast_int(p, end, rt.curve_idx);
+            p = fast_int(p, end, rt.self_int);
+            rt.available_cc = std::strtod(skip_ws(p, end), nullptr);
             e.remaining.push_back(rt);
         }
         std::getline(fin, line); // END
+        populate_lst_cache(e);  // pre-compute LST kernel once per entry
         entries.push_back(std::move(e));
     }
     return entries;
@@ -255,6 +366,81 @@ inline std::vector<CatEntry> load_all_cats(const std::string& dir) {
 // ============================================================================
 // Dedup + remaining
 // ============================================================================
+
+// Binary-fingerprint variant of dedup_key_v2.
+// Produces a 128-bit key (two-hash) over the same canonical content as
+// dedup_key_v2 (sorted eigenvalues + sorted vertex descriptors + sorted edge
+// multiset + extra) but packs bytes directly instead of formatting decimal
+// strings. Used with std::unordered_set<DedupKey128, DedupKey128Hash>.
+inline DedupKey128 dedup_key_v2_binary(const Eigen::MatrixXi& IF,
+                                        const std::string& extra = "") {
+    int n = IF.rows();
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es(IF.cast<double>());
+    auto ev = es.eigenvalues();
+
+    std::vector<uint8_t> buf;
+    buf.reserve(64 + n * 32 + extra.size());
+
+    // 1. Sorted eigenvalues quantized to int64 at 1e-8 resolution (matches the
+    //    8-decimal text format used by dedup_key_v2).
+    for (int i = 0; i < n; i++) {
+        double v = ev(i);
+        if (std::abs(v) < 1e-10) v = 0.0;
+        int64_t qv = (int64_t)std::llround(v * 1e8);
+        buf_append_i64(buf, qv);
+    }
+    buf.push_back(0xFF);  // section separator
+
+    // 2. Sorted vertex descriptors
+    struct VDesc {
+        int si, deg;
+        std::vector<int> nbr_si;
+        bool operator<(const VDesc& o) const {
+            return std::tie(si, deg, nbr_si) < std::tie(o.si, o.deg, o.nbr_si);
+        }
+    };
+    std::vector<VDesc> vds(n);
+    for (int i = 0; i < n; i++) {
+        vds[i].si = IF(i, i);
+        vds[i].deg = 0;
+        for (int j = 0; j < n; j++)
+            if (j != i && IF(i, j) != 0) {
+                vds[i].deg++;
+                vds[i].nbr_si.push_back(IF(j, j));
+            }
+        std::sort(vds[i].nbr_si.begin(), vds[i].nbr_si.end());
+    }
+    std::sort(vds.begin(), vds.end());
+    for (auto& vd : vds) {
+        buf_append_i32(buf, vd.si);
+        buf_append_i32(buf, vd.deg);
+        buf_append_i32(buf, (int32_t)vd.nbr_si.size());
+        for (int s : vd.nbr_si) buf_append_i32(buf, s);
+    }
+    buf.push_back(0xFE);
+
+    // 3. Sorted edge multiset
+    std::vector<std::tuple<int, int, int>> edges;
+    for (int i = 0; i < n; i++)
+        for (int j = i + 1; j < n; j++)
+            if (IF(i, j) != 0) {
+                int a = IF(i, i), b = IF(j, j);
+                if (a > b) std::swap(a, b);
+                edges.push_back({a, b, IF(i, j)});
+            }
+    std::sort(edges.begin(), edges.end());
+    for (auto& [a, b, w] : edges) {
+        buf_append_i32(buf, a);
+        buf_append_i32(buf, b);
+        buf_append_i32(buf, w);
+    }
+    buf.push_back(0xFD);
+
+    // 4. Extra discriminator
+    buf_append_bytes(buf, extra.data(), extra.size());
+
+    return hash128(buf);
+}
 
 inline std::string dedup_key_v2(const Eigen::MatrixXi& IF, const std::string& extra = "") {
     int n = IF.rows();
@@ -392,7 +578,7 @@ inline CatEntry make_result(
     r.catalog_id = parent.catalog_id;
     r.catalog_type = parent.catalog_type;
     r.base_T = parent.base_T;
-    r.final_IF = new_IF;
+    r.set_sparse_from(new_IF);   // store sparsely; reconstructed at dedup/write
     r.T = anom.T; r.H_charged = anom.H_charged; r.V = anom.V; r.H_neutral = anom.H_neutral;
     r.det = sig.det; r.sig_pos = sig.sig_pos; r.sig_neg = sig.sig_neg; r.sig_zero = sig.sig_zero;
     std::set<int> ei_set;
@@ -407,6 +593,19 @@ inline bool has_hat1(const CatEntry& entry, bool new_is_hat1 = false) {
     return false;
 }
 
+// Canonical-order skip: non-hat1 externals must be tag-non-decreasing relative
+// to the entry's last non-hat1 block. hat1 attach always allowed.
+// Output-preserving: dedup_key_v2 (graph-iso) absorbs duplicate paths to same
+// final IF; canonical just picks one representative.
+inline bool canonical_skip(const CatEntry& entry,
+                            const std::string& new_tag, bool new_is_hat1) {
+    if (new_is_hat1) return false;
+    for (auto it = entry.externals.rbegin(); it != entry.externals.rend(); ++it) {
+        if (!it->is_hat1) return new_tag < it->tag;
+    }
+    return false;
+}
+
 // ============================================================================
 // Mode A: Single-curve external attachment
 // ============================================================================
@@ -415,6 +614,7 @@ inline void attach_single(
     const CatEntry& entry, const ExternalSpec& spec, double cc_budget,
     std::vector<CatEntry>& results, int& tried, int& passed)
 {
+    if (canonical_skip(entry, spec.tag, spec.is_hat1)) return;
     std::set<int> ext_set;
     for (auto& ei : entry.externals) ext_set.insert(ei.curve_idx);
 
@@ -445,18 +645,17 @@ inline void attach_single(
         tried++;
         int n = entry.final_IF.rows();
         Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n+1, n+1);
-        new_IF.block(0,0,n,n) = entry.final_IF;
         int ext_idx = n;
         new_IF(ext_idx, ext_idx) = spec.ext_si;
         new_IF(ext_idx, rt.curve_idx) = spec.int_num;
         new_IF(rt.curve_idx, ext_idx) = spec.int_num;
 
-        if (!spec.is_hat1 && sig_pos_exceeds_one_fast(new_IF, 193)) continue;
-        auto sig = compute_sig(new_IF);
+        if (!spec.is_hat1 && schur_reject(entry_schur(entry), new_IF, 193)) continue;
+        new_IF.block(0,0,n,n) = entry.final_IF;  // base copied only after schur passes (schur reads only appended cols)
+        auto sig = compute_sig_fast(new_IF);
         if (!spec.is_hat1) {
             if (sig.sig_pos != 1) continue;
         }
-        if (spec.is_hat1 && std::abs(sig.det) == 1) continue;
         if (g_det_sq_mode && !has_hat1(entry, spec.is_hat1) && !is_perfect_square(std::abs(sig.det))) continue;
 
         NHCResult nhc = check_nhc(new_IF, cc_budget);
@@ -475,11 +674,11 @@ inline void attach_single(
             continue;
         // True c_ext ≤ 16 — REJECT (no recovery)
         {
-            double tc = compute_true_c_ext_fiber(new_IF, nhc, ext_set);
+            double tc = compute_true_c_ext_fiber_cached(new_IF, nhc, ext_set, entry.cached_lst_idx, entry_kernel(entry));
             if (tc >= 0 && tc > g_true_c_ext_max + 1e-9) continue;
         }
 
-        AnomalyResult anom = compute_anomaly(new_IF, nhc);
+        AnomalyResult anom = compute_anomaly(nhc, sig);
         bool is_sugra = true;
         if (anom.H_neutral < 0) is_sugra = false;
         if (is_sugra) {
@@ -503,6 +702,7 @@ inline void attach_v6_multi(
     std::vector<CatEntry>& results, int& tried, int& passed)
 {
     if (spec.is_hat1 || spec.target_si != -1) return;
+    if (canonical_skip(entry, spec.tag, false)) return;
     // c_ext pre-check (at least 1 ext added)
     if (total_ext_cc(entry.externals, spec.ext_si, spec.target_si, spec.int_num, false) > g_max_ext_cc + 1e-9) return;
 
@@ -516,7 +716,7 @@ inline void attach_v6_multi(
 
     int max_k, max_tgt;
     if (spec.ext_si == -2 || spec.ext_si == -3) {
-        max_k = 4;
+        max_k = 5;  // match phase1 config.mixed_int_max default
         max_tgt = (int)m1_curves.size();
     } else {
         max_k = std::min(max_level_for_cc(ext_gauge, 8.0), 9);
@@ -528,12 +728,30 @@ inline void attach_v6_multi(
     for (auto& ei : entry.externals)
         if (ei.is_hat1) hat1_set.insert(ei.curve_idx);
 
+    // Per-(-1)-target available_cc lookup (built once, used in pre-check below).
+    // Mirrors attach_single's line 545 check across all targets.
+    int n_total = entry.final_IF.rows();
+    std::vector<double> avail_cc(n_total, -1.0);
+    for (auto& rt : entry.remaining)
+        if (rt.self_int == -1) avail_cc[rt.curve_idx] = rt.available_cc;
+
     enumerate_subsets_v2(m1_curves, 2, max_tgt, [&](const std::vector<int>& targets) {
         enumerate_int_nums((int)targets.size(), max_k, [&](const std::vector<int>& int_nums) {
             tried++;
+            // Pre-check: each (-1) target must have room for the new ext's cc
+            // contribution. Single attach (-1 target) does not change existing
+            // non-(-1) cluster gauges, so available_cc upper-bounds the cc
+            // added on each target. Skips most L2 fails before new_IF / NHC.
+            bool fits = true;
+            for (int i = 0; i < (int)targets.size(); i++) {
+                double need = central_charge(ext_gauge, int_nums[i]);
+                double avail = avail_cc[targets[i]];
+                if (avail < 0 || need > avail + 1e-9) { fits = false; break; }
+            }
+            if (!fits) return;
+
             int n = entry.final_IF.rows();
             Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n+1, n+1);
-            new_IF.block(0,0,n,n) = entry.final_IF;
             int ext_idx = n;
             new_IF(ext_idx, ext_idx) = spec.ext_si;
             for (int i = 0; i < (int)targets.size(); i++) {
@@ -542,8 +760,9 @@ inline void attach_v6_multi(
             }
 
 
-            if (sig_pos_exceeds_one_fast(new_IF, 193)) return;
-            auto sig = compute_sig(new_IF);
+            if (schur_reject(entry_schur(entry), new_IF, 193)) return;
+            new_IF.block(0,0,n,n) = entry.final_IF;  // base copied only after schur passes (schur reads only appended cols)
+            auto sig = compute_sig_fast(new_IF);
             if (sig.sig_pos != 1) return;
             if (g_det_sq_mode && !has_hat1(entry) && !is_perfect_square(std::abs(sig.det))) return;
 
@@ -562,7 +781,7 @@ inline void attach_v6_multi(
                 return;
             // True c_ext ≤ 16 — REJECT
             {
-                double tc = compute_true_c_ext_fiber(new_IF, nhc, ext_set);
+                double tc = compute_true_c_ext_fiber_cached(new_IF, nhc, ext_set, entry.cached_lst_idx, entry_kernel(entry));
                 if (tc >= 0 && tc > g_true_c_ext_max + 1e-9) return;
             }
 
@@ -583,6 +802,11 @@ inline void attach_nhc_cluster(
     const CatEntry& entry, const NHCClusterSpec& nhc_spec, double cc_budget,
     std::vector<CatEntry>& results, int& tried, int& passed)
 {
+    // No canonical_skip: NHC cluster attach on a non-NHC input entry (e.g.,
+    // [su3] + attach nhc_2_3) produces final IFs that the canonical path
+    // (input nhc_2_3 + attach su3 via single/v6_multi) cannot reach due to
+    // intermediate cc-budget divergence. Cluster attach enumerates both
+    // directions; dedup absorbs duplicate canonical paths.
     // c_ext pre-check: estimate minimum cc for NHC cluster (using actual NHC gauge)
     {
         double nhc_cc = 0;
@@ -624,7 +848,6 @@ inline void attach_nhc_cluster(
             tried++;
             int n = entry.final_IF.rows();
             Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n + ne, n + ne);
-            new_IF.block(0, 0, n, n) = entry.final_IF;
 
             // NHC internal structure
             for (int i = 0; i < ne; i++)
@@ -641,12 +864,13 @@ inline void attach_nhc_cluster(
                 }
             }
 
-            // Quick cc check
+            // Schur signature first: it reads only the appended cluster columns, NOT the
+            // base block, so we skip the O(n²) base copy + quick_cc_check for the ~93% it
+            // rejects. Reordering vs quick_cc_check is output-preserving (both only reject).
+            if (schur_reject(entry_schur(entry), new_IF, 193)) return;
+            new_IF.block(0, 0, n, n) = entry.final_IF;  // base copied only after schur passes
             if (!quick_cc_check(new_IF, cc_budget)) return;
-
-            // LDLT → eigensolve (cheap filters first)
-            if (sig_pos_exceeds_one_fast(new_IF, 193)) return;
-            auto sig = compute_sig(new_IF);
+            auto sig = compute_sig_fast(new_IF);
             if (sig.sig_pos != 1) return;
             if (g_det_sq_mode && !has_hat1(entry) && !is_perfect_square(std::abs(sig.det))) return;
 
@@ -677,7 +901,7 @@ inline void attach_nhc_cluster(
                 return;
             // True c_ext ≤ 16 — REJECT
             {
-                double tc = compute_true_c_ext_fiber(new_IF, nhc, ext_set);
+                double tc = compute_true_c_ext_fiber_cached(new_IF, nhc, ext_set, entry.cached_lst_idx, entry_kernel(entry));
                 if (tc >= 0 && tc > g_true_c_ext_max + 1e-9) return;
             }
 
@@ -806,6 +1030,12 @@ inline void attach_mixed_generic(
     const std::string& mix_tag, int spec_id,
     std::vector<CatEntry>& results, int& tried, int& passed)
 {
+    // Canonical only for mix_tags that have a phase1 base (alternate path
+    // reachable). su2n3mix / su8mix / so16n2mix are phase2-emergent (no phase1
+    // cat), so applying canonical here loses final IFs.
+    if (mix_tag == "su3n2mix") {
+        if (canonical_skip(entry, mix_tag, false)) return;
+    }
     // c_ext pre-check
     if (total_ext_cc(entry.externals, ext_si, -1, 1, false) > g_max_ext_cc + 1e-9) return;
 
@@ -813,15 +1043,34 @@ inline void attach_mixed_generic(
     for (auto& ei : entry.externals)
         if (ei.is_hat1) hat1_set.insert(ei.curve_idx);
 
-    int int_max = 4;
-    int max_m1 = std::min((int)m1_curves.size(), 4);
+    int int_max = 5;  // match phase1 config.mixed_int_max
+    int max_m1 = std::min((int)m1_curves.size(), 193);  // match phase1 (no effective cap)
+
+    // Per-(-1)-target available_cc lookup + ext_gauge for pre-check.
+    int n_total = entry.final_IF.rows();
+    std::vector<double> avail_cc(n_total, -1.0);
+    for (auto& rt : entry.remaining)
+        if (rt.self_int == -1) avail_cc[rt.curve_idx] = rt.available_cc;
+    GaugeInfo ext_gauge_for_check = gauge_from_si(ext_si);
+    if (ext_gauge_for_check.dim == 0 && ext_si == -2) ext_gauge_for_check = GAUGE_SU2;
 
     enumerate_subsets_v2(m1_curves, 1, max_m1, [&](const std::vector<int>& m1_targets) {
         enumerate_int_nums((int)m1_targets.size(), int_max, [&](const std::vector<int>& int_nums) {
             tried++;
+            // Pre-check: each (-1) target must have room for ext_gauge cc.
+            // Conservative (uses standalone gauge); cluster joining via
+            // tgt_curve may make actual gauge larger (still safe — only
+            // under-prunes).
+            bool fits = true;
+            for (int i = 0; i < (int)m1_targets.size(); i++) {
+                double need = central_charge(ext_gauge_for_check, int_nums[i]);
+                double avail = avail_cc[m1_targets[i]];
+                if (avail < 0 || need > avail + 1e-9) { fits = false; break; }
+            }
+            if (!fits) return;
+
             int n = entry.final_IF.rows();
             Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n+1, n+1);
-            new_IF.block(0,0,n,n) = entry.final_IF;
             int ext_idx = n;
             new_IF(ext_idx, ext_idx) = ext_si;
             // Connect to special target
@@ -833,8 +1082,9 @@ inline void attach_mixed_generic(
                 new_IF(m1_targets[i], ext_idx) = int_nums[i];
             }
 
-            if (sig_pos_exceeds_one_fast(new_IF, 193)) return;
-            auto sig = compute_sig(new_IF);
+            if (schur_reject(entry_schur(entry), new_IF, 193)) return;
+            new_IF.block(0,0,n,n) = entry.final_IF;  // base copied only after schur passes
+            auto sig = compute_sig_fast(new_IF);
             if (sig.sig_pos != 1) return;
             if (g_det_sq_mode && !has_hat1(entry) && !is_perfect_square(std::abs(sig.det))) return;
 
@@ -851,7 +1101,7 @@ inline void attach_mixed_generic(
             {
                 std::set<int> ext_set;
                 for (auto& ei : all_exts) ext_set.insert(ei.curve_idx);
-                double tc = compute_true_c_ext_fiber(new_IF, nhc, ext_set);
+                double tc = compute_true_c_ext_fiber_cached(new_IF, nhc, ext_set, entry.cached_lst_idx, entry_kernel(entry));
                 if (tc >= 0 && tc > g_true_c_ext_max + 1e-9) return;
             }
             AnomalyResult anom = compute_anomaly(nhc, sig);
@@ -874,46 +1124,68 @@ inline void attach_mixed_multi(
         else if (rt.self_int == -3) m3_curves.push_back(rt.curve_idx);
         else if (rt.self_int == -4) m4_curves.push_back(rt.curve_idx);
     }
-    if (m1_curves.empty()) return;
+    // so7 = (-2)-(-3)-(-2): the new (-3) bridges two (-2) curves into su2+so7+su2.
+    // A (-2) can be an so7 leg ONLY if it is "isolated" — all its base-IF neighbors are
+    // (-1). A (-2) already adjacent to a deeper curve (≤ -2, fiber, etc.) would make a
+    // different/invalid cluster, so any pair containing it produces nothing downstream.
+    // Pre-filtering to isolated (-2)s avoids the C(m2,2) blow-up: at high T almost every
+    // (-2) sits in a chain, so there are ~0 valid pairs (so7/so7mix become near free).
+    std::vector<int> iso_m2_curves;
+    {
+        int nn = entry.final_IF.rows();
+        for (int c : m2_curves) {
+            bool iso = true;
+            for (int j = 0; j < nn; j++) {
+                if (j == c || entry.final_IF(c, j) == 0) continue;
+                if (entry.final_IF(j, j) != -1) { iso = false; break; }
+            }
+            if (iso) iso_m2_curves.push_back(c);
+        }
+    }
 
-    // su2n3mix: su2(-2) → (-3) int=1 + (-1)s
-    for (int m3 : m3_curves)
-        attach_mixed_generic(entry, cc_budget, -2, m3, 1, m1_curves,
-                             "su2n3mix", 7/*su2n3 spec_id*/, results, tried, passed);
+    // Don't early-return on m1_curves.empty() — the so7 inline block below only
+    // uses m2_curves and must still run. Gate m1-dependent blocks individually.
 
-    // su8mix: su2(-2) → (-4) int=2 + (-1)s
-    for (int m4 : m4_curves)
-        attach_mixed_generic(entry, cc_budget, -2, m4, 2, m1_curves,
-                             "su8mix", 8/*su8 spec_id*/, results, tried, passed);
+    if (!m1_curves.empty()) {
+        // su2n3mix: su2(-2) → (-3) int=1 + (-1)s
+        for (int m3 : m3_curves)
+            attach_mixed_generic(entry, cc_budget, -2, m3, 1, m1_curves,
+                                 "su2n3mix", 7/*su2n3 spec_id*/, results, tried, passed);
 
-    // su3n2mix: su3(-3) → (-2) int=1 + (-1)s
-    for (int m2 : m2_curves)
-        attach_mixed_generic(entry, cc_budget, -3, m2, 1, m1_curves,
-                             "su3n2mix", 16/*su3n2 spec_id*/, results, tried, passed);
+        // su8mix: su2(-2) → (-4) int=2 + (-1)s
+        for (int m4 : m4_curves)
+            attach_mixed_generic(entry, cc_budget, -2, m4, 2, m1_curves,
+                                 "su8mix", 8/*su8 spec_id*/, results, tried, passed);
 
-    // so16n2mix: so8(-4) → (-2) int=2 + (-1)s
-    for (int m2 : m2_curves)
-        attach_mixed_generic(entry, cc_budget, -4, m2, 2, m1_curves,
-                             "so16n2mix", 18/*so16n2 spec_id*/, results, tried, passed);
+        // su3n2mix: su3(-3) → (-2) int=1 + (-1)s
+        for (int m2 : m2_curves)
+            attach_mixed_generic(entry, cc_budget, -3, m2, 1, m1_curves,
+                                 "su3n2mix", 16/*su3n2 spec_id*/, results, tried, passed);
+
+        // so16n2mix: so8(-4) → (-2) int=2 + (-1)s
+        for (int m2 : m2_curves)
+            attach_mixed_generic(entry, cc_budget, -4, m2, 2, m1_curves,
+                                 "so16n2mix", 18/*so16n2 spec_id*/, results, tried, passed);
+    }
 
     // so7: (-3) → two (-2) curves (forms (-2)-(-3)-(-2) = su2+so7+su2)
-    if ((int)m2_curves.size() >= 2) {
+    if ((int)iso_m2_curves.size() >= 2 && !canonical_skip(entry, "so7", false)) {
         std::set<int> hat1_set;
         for (auto& ei : entry.externals)
             if (ei.is_hat1) hat1_set.insert(ei.curve_idx);
-        for (int a = 0; a < (int)m2_curves.size(); a++) {
-            for (int b = a + 1; b < (int)m2_curves.size(); b++) {
+        for (int a = 0; a < (int)iso_m2_curves.size(); a++) {
+            for (int b = a + 1; b < (int)iso_m2_curves.size(); b++) {
                 tried++;
                 int n = entry.final_IF.rows();
                 Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n+1, n+1);
-                new_IF.block(0,0,n,n) = entry.final_IF;
                 int ext_idx = n;
                 new_IF(ext_idx, ext_idx) = -3;
-                new_IF(ext_idx, m2_curves[a]) = 1; new_IF(m2_curves[a], ext_idx) = 1;
-                new_IF(ext_idx, m2_curves[b]) = 1; new_IF(m2_curves[b], ext_idx) = 1;
+                new_IF(ext_idx, iso_m2_curves[a]) = 1; new_IF(iso_m2_curves[a], ext_idx) = 1;
+                new_IF(ext_idx, iso_m2_curves[b]) = 1; new_IF(iso_m2_curves[b], ext_idx) = 1;
 
-                if (sig_pos_exceeds_one_fast(new_IF, 193)) continue;
-                auto sig = compute_sig(new_IF);
+                if (schur_reject(entry_schur(entry), new_IF, 193)) continue;
+                new_IF.block(0,0,n,n) = entry.final_IF;  // base copied only after schur passes
+                auto sig = compute_sig_fast(new_IF);
                 if (sig.sig_pos != 1) continue;
 
                 NHCResult nhc = check_nhc(new_IF, cc_budget);
@@ -925,7 +1197,7 @@ inline void attach_mixed_multi(
                     std::set<int> ext_set;
                     for (auto& ei : entry.externals) ext_set.insert(ei.curve_idx);
                     ext_set.insert(ext_idx);
-                    double tc = compute_true_c_ext_fiber(new_IF, nhc, ext_set);
+                    double tc = compute_true_c_ext_fiber_cached(new_IF, nhc, ext_set, entry.cached_lst_idx, entry_kernel(entry));
                     if (tc >= 0 && tc > g_true_c_ext_max + 1e-9) continue;
                 }
                 AnomalyResult anom = compute_anomaly(nhc, sig);
@@ -939,30 +1211,48 @@ inline void attach_mixed_multi(
     }
 
     // so7mix: (-3) → two (-2) + (-1)s
-    if ((int)m2_curves.size() >= 2 && !m1_curves.empty()) {
+    if ((int)iso_m2_curves.size() >= 2 && !m1_curves.empty() && !canonical_skip(entry, "so7mix", false)) {
         std::set<int> hat1_set;
         for (auto& ei : entry.externals)
             if (ei.is_hat1) hat1_set.insert(ei.curve_idx);
-        for (int a = 0; a < (int)m2_curves.size(); a++) {
-            for (int b = a + 1; b < (int)m2_curves.size(); b++) {
-                int max_m1 = std::min((int)m1_curves.size(), 4);
+        // Per-(-1) available_cc lookup for the fits pre-check below.
+        std::vector<double> avail_cc_m(entry.final_IF.rows(), -1.0);
+        for (auto& rt : entry.remaining)
+            if (rt.self_int == -1) avail_cc_m[rt.curve_idx] = rt.available_cc;
+        for (int a = 0; a < (int)iso_m2_curves.size(); a++) {
+            for (int b = a + 1; b < (int)iso_m2_curves.size(); b++) {
+                int max_m1 = std::min((int)m1_curves.size(), 193);  // match phase1
                 enumerate_subsets_v2(m1_curves, 1, max_m1, [&](const std::vector<int>& m1_targets) {
-                    enumerate_int_nums((int)m1_targets.size(), 4, [&](const std::vector<int>& int_nums) {
+                    enumerate_int_nums((int)m1_targets.size(), 5, [&](const std::vector<int>& int_nums) {
                         tried++;
+                        // Per-curve cc pre-check (mirrors attach_mixed_generic's `fits`):
+                        // each (-1) target must have budget for the external's cc load. Uses
+                        // the standalone su3 gauge; the cluster gauge (so7) is ≥ su3, so this
+                        // conservatively UNDER-prunes → output-preserving (overloaded targets
+                        // fail downstream NHC/cc anyway). Skips ~99% of leaves before new_IF.
+                        {
+                          bool fits = true;
+                          for (int i = 0; i < (int)m1_targets.size(); i++) {
+                              double need = central_charge(GAUGE_SU3, int_nums[i]);
+                              double av = avail_cc_m[m1_targets[i]];
+                              if (av < 0 || need > av + 1e-9) { fits = false; break; }
+                          }
+                          if (!fits) return;
+                        }
                         int n = entry.final_IF.rows();
                         Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n+1, n+1);
-                        new_IF.block(0,0,n,n) = entry.final_IF;
                         int ext_idx = n;
                         new_IF(ext_idx, ext_idx) = -3;
-                        new_IF(ext_idx, m2_curves[a]) = 1; new_IF(m2_curves[a], ext_idx) = 1;
-                        new_IF(ext_idx, m2_curves[b]) = 1; new_IF(m2_curves[b], ext_idx) = 1;
+                        new_IF(ext_idx, iso_m2_curves[a]) = 1; new_IF(iso_m2_curves[a], ext_idx) = 1;
+                        new_IF(ext_idx, iso_m2_curves[b]) = 1; new_IF(iso_m2_curves[b], ext_idx) = 1;
                         for (int i = 0; i < (int)m1_targets.size(); i++) {
                             new_IF(ext_idx, m1_targets[i]) = int_nums[i];
                             new_IF(m1_targets[i], ext_idx) = int_nums[i];
                         }
 
-                        if (sig_pos_exceeds_one_fast(new_IF, 193)) return;
-                        auto sig = compute_sig(new_IF);
+                        if (schur_reject(entry_schur(entry), new_IF, 193)) return;
+                        new_IF.block(0,0,n,n) = entry.final_IF;  // base copied only after schur passes
+                        auto sig = compute_sig_fast(new_IF);
                         if (sig.sig_pos != 1) return;
 
                         NHCResult nhc = check_nhc(new_IF, cc_budget);
@@ -974,7 +1264,7 @@ inline void attach_mixed_multi(
                             std::set<int> ext_set;
                             for (auto& ei : entry.externals) ext_set.insert(ei.curve_idx);
                             ext_set.insert(ext_idx);
-                            double tc = compute_true_c_ext_fiber(new_IF, nhc, ext_set);
+                            double tc = compute_true_c_ext_fiber_cached(new_IF, nhc, ext_set, entry.cached_lst_idx, entry_kernel(entry));
                             if (tc >= 0 && tc > g_true_c_ext_max + 1e-9) return;
                         }
                         AnomalyResult anom = compute_anomaly(nhc, sig);
@@ -985,6 +1275,117 @@ inline void attach_mixed_multi(
                         else if (g_save_nonsugra && g_nonsugra_results && should_save_nonsugra(anom, res.externals)) g_nonsugra_results->push_back(std::move(res));
                     });
                 });
+            }
+        }
+    }
+
+    // 2 / 2mix: new (-2, gauge NONE) attaches to a LST-native (-2) that is
+    // currently part of an isolated nhc_2_3 cluster (the partner (-3) must
+    // also be LST-native and have no other non-(-1) neighbors). Forms
+    // nhc_2_2_3 after attach. cc/anomaly impact: zero (new (-2) has no
+    // gauge; existing (-2)'s SU2→SP1 has identical cc; H,V same between
+    // nhc_2_3 and nhc_2_2_3).
+    {
+        // Identify externals and valid target (-2)s
+        std::set<int> ext_set_2mix;
+        for (auto& ei : entry.externals) ext_set_2mix.insert(ei.curve_idx);
+
+        int n = entry.final_IF.rows();
+        std::vector<int> targets_2;
+        for (int i = 0; i < n; i++) {
+            if (ext_set_2mix.count(i)) continue;  // i must be LST native
+            if (entry.final_IF(i, i) != -2) continue;
+            // i's non-(-1) neighbors must be exactly one LST-native (-3)
+            int j_partner = -1;
+            int i_non_m1_count = 0;
+            for (int j = 0; j < n; j++) {
+                if (j == i || entry.final_IF(i, j) == 0) continue;
+                if (entry.final_IF(j, j) == -1) continue;
+                i_non_m1_count++;
+                j_partner = j;
+            }
+            if (i_non_m1_count != 1) continue;
+            if (ext_set_2mix.count(j_partner)) continue;  // partner must be LST native
+            if (entry.final_IF(j_partner, j_partner) != -3) continue;
+            // j_partner's non-(-1) neighbors must be exactly {i}
+            int j_non_m1_count = 0;
+            for (int k = 0; k < n; k++) {
+                if (k == j_partner || entry.final_IF(j_partner, k) == 0) continue;
+                if (entry.final_IF(k, k) == -1) continue;
+                j_non_m1_count++;
+            }
+            if (j_non_m1_count != 1) continue;
+            targets_2.push_back(i);
+        }
+
+        if (!targets_2.empty()) {
+            std::set<int> hat1_set;
+            for (auto& ei : entry.externals)
+                if (ei.is_hat1) hat1_set.insert(ei.curve_idx);
+
+            auto run_2_attach = [&](int target_2,
+                                    const std::vector<int>& m1_targets,
+                                    const std::vector<int>& int_nums,
+                                    const std::string& tag) {
+                tried++;
+                Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n + 1, n + 1);
+                int ext_idx = n;
+                new_IF(ext_idx, ext_idx) = -2;
+                new_IF(ext_idx, target_2) = 1;
+                new_IF(target_2, ext_idx) = 1;
+                for (int i = 0; i < (int)m1_targets.size(); i++) {
+                    new_IF(ext_idx, m1_targets[i]) = int_nums[i];
+                    new_IF(m1_targets[i], ext_idx) = int_nums[i];
+                }
+
+                if (schur_reject(entry_schur(entry), new_IF, 193)) return;
+                new_IF.block(0, 0, n, n) = entry.final_IF;  // base copied only after schur passes
+                auto sig = compute_sig_fast(new_IF);
+                if (sig.sig_pos != 1) return;
+                if (g_det_sq_mode && !has_hat1(entry) && !is_perfect_square(std::abs(sig.det))) return;
+
+                NHCResult nhc = check_nhc(new_IF, cc_budget);
+                if (!nhc.passes) return;
+
+                std::vector<ExtInfo> all_exts = entry.externals;
+                ExtInfo new_ei = {ext_idx, 0, tag, -2, -2, 1, false};
+                all_exts.push_back(new_ei);
+                if (!enhance_all_externals(nhc, new_IF, all_exts, cc_budget)) return;
+
+                std::set<int> ext_set_new;
+                for (auto& ei : all_exts) ext_set_new.insert(ei.curve_idx);
+                if (compute_proper_c_ext(new_IF, nhc, ext_set_new) > g_proper_c_ext_max + 1e-9) return;
+                {
+                    double tc = compute_true_c_ext_fiber_cached(new_IF, nhc, ext_set_new,
+                                                                 entry.cached_lst_idx, entry_kernel(entry));
+                    if (tc >= 0 && tc > g_true_c_ext_max + 1e-9) return;
+                }
+
+                AnomalyResult anom = compute_anomaly(nhc, sig);
+                bool is_sugra = (anom.H_neutral >= 0) && !reject_nonuni(new_IF, sig, anom, hat1_set);
+                auto res = make_result(entry, tag, {new_ei}, new_IF, nhc, anom, sig, cc_budget);
+                if (is_sugra) { results.push_back(std::move(res)); passed++; }
+                else if (g_save_nonsugra && g_nonsugra_results && should_save_nonsugra(anom, res.externals))
+                    g_nonsugra_results->push_back(std::move(res));
+            };
+
+            // Pure "2": new (-2) connects only to one target (-2)
+            if (!canonical_skip(entry, "2", false)) {
+                for (int target_2 : targets_2) {
+                    run_2_attach(target_2, {}, {}, "2");
+                }
+            }
+
+            // "2mix": + 1 or 2 (-1) targets with int_num in 1..3
+            if (!m1_curves.empty() && !canonical_skip(entry, "2mix", false)) {
+                for (int target_2 : targets_2) {
+                    int max_m1 = std::min((int)m1_curves.size(), 2);  // user's spec: at most 2 (-1) targets
+                    enumerate_subsets_v2(m1_curves, 1, max_m1, [&](const std::vector<int>& m1_targets) {
+                        enumerate_int_nums((int)m1_targets.size(), 3, [&](const std::vector<int>& int_nums) {
+                            run_2_attach(target_2, m1_targets, int_nums, "2mix");
+                        });
+                    });
+                }
             }
         }
     }
@@ -1003,7 +1404,7 @@ int main(int argc, char* argv[]) {
     std::string round_str = "2";
     for (int i = 2; i < argc; i++) {
         if (std::string(argv[i]) == "--det-sq") g_det_sq_mode = true;
-        else if (std::string(argv[i]) == "--use-lst-T") g_use_lst_T = true;
+        else if (std::string(argv[i]) == "--use-lst-T") { /* now canonical, no-op */ }
         else if (std::string(argv[i]) == "--save-nonsugra") g_save_nonsugra = true;
         else if (std::string(argv[i]) == "--no-su2") g_no_su2 = true;
         else if (std::string(argv[i]) == "--no-223") g_no_223 = true;
@@ -1040,10 +1441,14 @@ int main(int argc, char* argv[]) {
 #else
     const int nthreads = 1;
 #endif
+    // Per-thread result vectors; merged after the parallel region.
     std::vector<std::vector<CatEntry>> tl_results(nthreads);
     std::vector<std::vector<CatEntry>> tl_nonsugra(nthreads);
 
-#pragma omp parallel \
+#ifdef _OPENMP
+    omp_set_dynamic(0);  // pin thread count so threadprivate stays consistent
+#endif
+#pragma omp parallel num_threads(nthreads) \
     reduction(+:tried_single,passed_single,tried_v6,passed_v6,tried_nhc,passed_nhc,tried_mix,passed_mix)
     {
 #ifdef _OPENMP
@@ -1051,42 +1456,50 @@ int main(int argc, char* argv[]) {
 #else
         const int tid = 0;
 #endif
-        // Each thread's nonsugra pointer goes to its own thread-local vector.
+        // Each thread routes nonsugra pushes into its own slot.
         if (g_save_nonsugra) g_nonsugra_results = &tl_nonsugra[tid];
 
-#pragma omp for schedule(dynamic, 8)
+#pragma omp for schedule(static)
         for (int ei = 0; ei < n_in; ei++) {
             auto& entry = input_entries[ei];
+            entry.build_dense();   // reconstruct dense IF from sparse store (once per entry)
             g_current_base_T = (int)entry.final_IF.rows() - (int)entry.externals.size();
             auto& my_res = tl_results[tid];
 
+            // Single-curve externals (no ordering constraint — try all specs)
             for (auto& spec : all_specs) {
                 if (g_no_su2 && spec.ext_si == -2 && spec.target_si == -1 && !spec.is_hat1) continue;
                 attach_single(entry, spec, cc_budget, my_res, tried_single, passed_single);
                 attach_v6_multi(entry, spec, cc_budget, my_res, tried_v6, passed_v6);
             }
 
+            // Mixed multi-target (all variants: su2n3mix, su8mix, su3n2mix, so16n2mix, so7, so7mix, 2, 2mix)
             attach_mixed_multi(entry, cc_budget, my_res, tried_mix, passed_mix);
 
+            // NHC cluster externals
             for (auto& ns : nhc_cluster_specs) {
                 if (g_no_223 && ns.tag == "nhc_2_2_3") continue;
                 attach_nhc_cluster(entry, ns, cc_budget, my_res, tried_nhc, passed_nhc);
             }
+            entry.free_dense();    // release the dense IF; sparse store retained
         }
     }
 
-    // Merge thread-local results into main vectors.
-    size_t total_res = 0, total_ns = 0;
-    for (auto& v : tl_results) total_res += v.size();
-    for (auto& v : tl_nonsugra) total_ns += v.size();
-    results.reserve(total_res);
-    for (auto& v : tl_results) for (auto& r : v) results.push_back(std::move(r));
-    tl_results.clear();
-    if (g_save_nonsugra) {
-        nonsugra.reserve(total_ns);
-        for (auto& v : tl_nonsugra) for (auto& r : v) nonsugra.push_back(std::move(r));
-        tl_nonsugra.clear();
-        g_nonsugra_results = &nonsugra;  // restore main pointer for any post-loop usage
+    // Merge thread-local vectors into the main results / nonsugra vectors.
+    {
+        size_t total_res = 0, total_ns = 0;
+        for (auto& v : tl_results) total_res += v.size();
+        for (auto& v : tl_nonsugra) total_ns += v.size();
+        results.reserve(total_res);
+        for (auto& v : tl_results) for (auto& r : v) results.push_back(std::move(r));
+        tl_results.clear();
+        if (g_save_nonsugra) {
+            nonsugra.reserve(total_ns);
+            for (auto& v : tl_nonsugra) for (auto& r : v) nonsugra.push_back(std::move(r));
+            tl_nonsugra.clear();
+            // Restore main pointer for any post-loop usage.
+            g_nonsugra_results = &nonsugra;
+        }
     }
 
     std::cout << "\nSingle-target:    tried=" << tried_single << ", passed=" << passed_single << "\n"
@@ -1096,11 +1509,14 @@ int main(int argc, char* argv[]) {
               << "Total raw: " << results.size() << "\n";
 
     // Dedup
-    std::set<std::string> seen;
+    std::unordered_set<DedupKey128, DedupKey128Hash> seen;
+    seen.reserve(results.size());
     std::vector<CatEntry> filtered;
     for (auto& r : results) {
         // Include catalog_id (LST source) so different build paths → different keys
-        auto key = dedup_key_v2(r.final_IF, r.combo_key + "|cid:" + std::to_string(r.catalog_id));
+        r.build_dense();
+        DedupKey128 key = dedup_key_v2_binary(r.final_IF, r.combo_key + "|cid:" + std::to_string(r.catalog_id));
+        r.free_dense();
         if (seen.insert(key).second) filtered.push_back(std::move(r));
     }
     std::cout << "After dedup: " << filtered.size() << "\n";
@@ -1113,7 +1529,7 @@ int main(int argc, char* argv[]) {
     });
 
     // Write .cat files
-    std::map<std::string, std::vector<const CatEntry*>> by_combo;
+    std::map<std::string, std::vector<CatEntry*>> by_combo;
     for (auto& r : filtered) by_combo[r.combo_key].push_back(&r);
     int tw = 0;
     for (auto& [combo, entries] : by_combo) {
@@ -1121,7 +1537,7 @@ int main(int argc, char* argv[]) {
         out << "# NHC ext Phase2 catalog: " << combo << "\n# Round: " << round_str
             << "\n# Total: " << entries.size() << "\n#\n";
         int eid = 0;
-        for (auto* rp : entries) { write_cat_entry(out, eid++, *rp); tw++; }
+        for (auto* rp : entries) { rp->build_dense(); write_cat_entry(out, eid++, *rp); rp->free_dense(); tw++; }
     }
 
     // INDEX
@@ -1154,24 +1570,27 @@ int main(int argc, char* argv[]) {
 
     // Write non-SUGRA catalog
     if (g_save_nonsugra && !nonsugra.empty()) {
-        std::set<std::string> ns_seen;
+        std::unordered_set<DedupKey128, DedupKey128Hash> ns_seen;
+        ns_seen.reserve(nonsugra.size());
         std::vector<CatEntry> ns_filtered;
         for (auto& r : nonsugra) {
             // Include catalog_id (LST source) so different build paths → different keys
-        auto key = dedup_key_v2(r.final_IF, r.combo_key + "|cid:" + std::to_string(r.catalog_id));
+            r.build_dense();
+            DedupKey128 key = dedup_key_v2_binary(r.final_IF, r.combo_key + "|cid:" + std::to_string(r.catalog_id));
+            r.free_dense();
             if (ns_seen.insert(key).second) ns_filtered.push_back(std::move(r));
         }
         std::string ns_dir = out_dir + "_nonsugra";
         std::filesystem::remove_all(ns_dir);
         std::filesystem::create_directories(ns_dir);
-        std::map<std::string, std::vector<const CatEntry*>> ns_by_combo;
+        std::map<std::string, std::vector<CatEntry*>> ns_by_combo;
         for (auto& r : ns_filtered) ns_by_combo[r.combo_key].push_back(&r);
         int ns_tw = 0;
         for (auto& [combo, entries] : ns_by_combo) {
             std::ofstream out2(ns_dir + "/" + combo + ".cat");
             out2 << "# Non-SUGRA: " << combo << "\n#\n";
             int eid = 0;
-            for (auto* rp : entries) { write_cat_entry(out2, eid++, *rp); ns_tw++; }
+            for (auto* rp : entries) { rp->build_dense(); write_cat_entry(out2, eid++, *rp); rp->free_dense(); ns_tw++; }
         }
         std::cout << "Non-SUGRA: " << ns_tw << " bases (" << ns_by_combo.size()
                   << " combos) to " << ns_dir << "/\n";

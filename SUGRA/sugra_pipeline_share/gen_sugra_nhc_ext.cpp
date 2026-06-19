@@ -1,7 +1,4 @@
 // gen_sugra_nhc_ext.cpp — NHC cluster external attachment
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 //
 // Attaches multi-curve NHC clusters (e.g., -2-3, -2-3-2, -2-2-3) as externals
 // to LST bases. Each curve in the NHC connects to base curve(s).
@@ -14,6 +11,9 @@
 #include <set>
 #include <iomanip>
 #include <filesystem>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 // ============================================================================
 // NHC External Spec
@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
     bool skip_223 = false;
     for (int i = 1; i < argc; i++) {
         if (std::string(argv[i]) == "--det-sq") det_sq_mode = true;
-        if (std::string(argv[i]) == "--use-lst-T") g_use_lst_T = true;
+        if (std::string(argv[i]) == "--use-lst-T") { /* now canonical, no-op */ }
         if (std::string(argv[i]) == "--save-nonsugra") save_nonsugra = true;
         if (std::string(argv[i]) == "--no-223") skip_223 = true;
     }
@@ -182,7 +182,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Precompute IFs
-    struct CachedIF { Eigen::MatrixXi IF; SigInfo sig; bool valid = false; };
+    struct CachedIF { Eigen::MatrixXi IF; SigInfo sig; BaseSchur schur; bool valid = false; };
     std::vector<CachedIF> cached_ifs(catalog.size());
     int n_cached = 0;
     for (size_t i = 0; i < catalog.size(); i++) {
@@ -202,7 +202,8 @@ int main(int argc, char* argv[]) {
             cached_ifs[i].IF = reconstruct_IF(entry);
         }
         if (cached_ifs[i].IF.rows() == 0) continue;
-        cached_ifs[i].sig = compute_sig(cached_ifs[i].IF);
+        cached_ifs[i].sig = compute_sig_fast(cached_ifs[i].IF);
+        cached_ifs[i].schur = precompute_base_schur(cached_ifs[i].IF);  // once per entry, reused across specs
         cached_ifs[i].valid = true;
         n_cached++;
     }
@@ -224,33 +225,27 @@ int main(int argc, char* argv[]) {
         std::cout.flush();
 
         int ne = (int)nhc_spec.self_ints.size();
-        std::vector<NHCExtResult> results;
-        std::vector<NHCExtResult> nonsugra_results;
-
 #ifdef _OPENMP
         const int n_threads_omp = omp_get_max_threads();
 #else
         const int n_threads_omp = 1;
 #endif
-        // Per-thread accumulators. Dedup key includes catalog_id (cid), so keys
+        // Per-thread accumulators. Dedup key includes catalog_id (cid) so keys
         // produced by different entries can't collide across threads — local
-        // sets are sufficient.
+        // sets are sufficient (no cross-thread merging needed for dedup).
+        std::vector<std::unordered_set<DedupKey128, DedupKey128Hash>> tl_seen(n_threads_omp);
+        std::vector<std::unordered_set<DedupKey128, DedupKey128Hash>> tl_nonsugra_seen(n_threads_omp);
         std::vector<std::vector<NHCExtResult>> tl_results(n_threads_omp);
         std::vector<std::vector<NHCExtResult>> tl_nonsugra(n_threads_omp);
-        std::vector<std::set<std::string>> tl_seen(n_threads_omp);
-        std::vector<std::set<std::string>> tl_nonsugra_seen(n_threads_omp);
 
         const int n_cat = (int)catalog.size();
-#pragma omp parallel for schedule(dynamic, 4)
+        // nhc_ext runs serially for the same reason as phase1 (cospectral
+        // representative selection cascades into chain). Total cost is a
+        // few seconds for T=0..10 — negligible vs the chain phase.
         for (int ci = 0; ci < n_cat; ci++) {
             if (!cached_ifs[ci].valid) continue;
             auto& entry = catalog[ci];
             auto& base_IF = cached_ifs[ci].IF;
-            int nb = base_IF.rows();
-            g_current_base_T = nb;  // LST curve count for --use-lst-T (threadprivate)
-
-            // Bind the per-thread accumulators so the enumerate lambda below
-            // (which captures by reference) writes into thread-local storage.
 #ifdef _OPENMP
             const int tid = omp_get_thread_num();
 #else
@@ -260,6 +255,8 @@ int main(int argc, char* argv[]) {
             auto& nonsugra_seen = tl_nonsugra_seen[tid];
             auto& results = tl_results[tid];
             auto& nonsugra_results = tl_nonsugra[tid];
+            int nb = base_IF.rows();
+            g_current_base_T = nb;  // LST curve count for --use-lst-T
 
             // Find (-1) curves with cc budget room + (-2) curves as targets
             std::vector<int> m1_curves;  // (-1) with cc room
@@ -281,6 +278,16 @@ int main(int argc, char* argv[]) {
             if (nhc_spec.tag == "nhc_2_3")
                 all_targets.insert(all_targets.end(), m2_curves.begin(), m2_curves.end());
 
+            // Pre-compute LST kernel for true_c_ext (same for all leaves of this entry/spec):
+            // skips O(SVD) per leaf — major speedup when many leaves survive prefilter.
+            std::vector<int> lst_idx_cache;
+            for (int i = 0; i < nb; i++) lst_idx_cache.push_back(i);
+            Eigen::VectorXi cached_kernel = find_positive_integer_kernel(base_IF);
+            // Base inertia + pseudo-inverse: cached once per catalog entry (reused
+            // across all 4 NHC specs); per-candidate signature is an O((z+k)³) Schur
+            // complement instead of an O(n³) LDLT/eigensolve.
+            const BaseSchur& base_schur = cached_ifs[ci].schur;
+
             // For simplicity: enumerate assignments of NHC curves to base (-1) curves
             // Each NHC curve connects to one base (-1) curve with int=1
             // Allow same base curve for multiple NHC curves
@@ -292,7 +299,7 @@ int main(int argc, char* argv[]) {
             // Pre-compute available cc per (-1) curve
             std::map<int, double> avail_cc;
             for (int i : m1_curves)
-                avail_cc[i] = config.cc_budget - used_cc_on_minus1(base_IF, i);
+                avail_cc[i] = config.cc_budget - used_cc_on_minus1_nhc(base_IF, i);  // NHC-gauge-aware (was plain → over-counted room → candidate explosion)
 
             // assignment[i] = list of (target, int_num) for NHC curve i
             // cc_used tracks incremental cc usage per (-1) curve from assignments so far
@@ -307,9 +314,15 @@ int main(int argc, char* argv[]) {
                     // Quick cc check (full, catches non-(-1) interactions too)
                     if (!quick_cc_check(new_IF, config.cc_budget)) return;
 
-                    // Fast signature prefilter (hybrid LDLT + eigensolve fallback): rejects
-                    // the vast majority of leaves cheaply before the full eigensolve below.
-                    if (sig_pos_exceeds_one_fast(new_IF, config.T_max)) return;
+                    // Fast signature prefilter via Schur complement against the cached
+                    // base inertia (O((z+k)³) vs O(n³)). Conservative threshold (1e-6):
+                    // a positive eigenvalue is counted only when clearly positive, so we
+                    // never falsely reject a true sig_pos==1; compute_sig below stays
+                    // authoritative for the exact sig_pos==1 decision.
+                    {
+                        SigInfo _ss = schur_sig(base_schur, new_IF, 1e-6);
+                        if (_ss.sig_pos > 1 || _ss.sig_neg > config.T_max) return;
+                    }
 
                     // Full eigensolve
                     std::vector<double> ev;
@@ -330,9 +343,11 @@ int main(int argc, char* argv[]) {
                         return;
 
                     // True (fiber-weighted) c_ext ≤ 16 — REJECT (no recovery: c_ext only grows
-                    // with further attachments, so non-SUGRA chain can't rescue this)
+                    // with further attachments, so non-SUGRA chain can't rescue this).
+                    // Uses cached kernel (computed once per entry above).
                     {
-                        double tc = compute_true_c_ext_fiber(new_IF, nhc, ext_set);
+                        double tc = compute_true_c_ext_fiber_cached(new_IF, nhc, ext_set,
+                                                                     lst_idx_cache, cached_kernel);
                         if (tc >= 0 && tc > g_true_c_ext_max + 1e-9) return;
                     }
 
@@ -348,19 +363,25 @@ int main(int argc, char* argv[]) {
                     // Dedup: eigenvalues + diagonal — separate per sugra/non-sugra
                     // (cospectral non-isomorphic IFs can fall in same key; the SUGRA
                     //  representative must be kept regardless of enumeration order.)
-                    std::string dedup_key;
+                    // Binary fingerprint hashed to 128 bits.
+                    DedupKey128 dedup_key;
                     {
-                        std::ostringstream ks;
-                        ks << std::fixed << std::setprecision(6);
+                        std::vector<uint8_t> buf;
+                        buf.reserve(64 + new_IF.rows() * 4 + nhc_spec.tag.size() + 16);
                         auto sev = ev; std::sort(sev.begin(), sev.end());
-                        for (auto e : sev) ks << (std::abs(e) < 1e-10 ? 0.0 : e) << ",";
-                        ks << "|";
+                        for (auto e : sev) {
+                            double v = std::abs(e) < 1e-10 ? 0.0 : e;
+                            int64_t qv = (int64_t)std::llround(v * 1e6);  // matches setprecision(6)
+                            buf_append_i64(buf, qv);
+                        }
+                        buf.push_back(0xFF);
                         int nn = new_IF.rows();
-                        for (int ii = 0; ii < nn; ii++) ks << new_IF(ii,ii) << ",";
-                        ks << "|" << nhc_spec.tag;
-                        // Include catalog_id (LST source) so different build paths → different keys
-                        ks << "|cid:" << entry.id;
-                        dedup_key = ks.str();
+                        for (int ii = 0; ii < nn; ii++) buf_append_i32(buf, new_IF(ii, ii));
+                        buf.push_back(0xFE);
+                        buf_append_bytes(buf, nhc_spec.tag.data(), nhc_spec.tag.size());
+                        buf.push_back(0xFD);
+                        buf_append_i32(buf, entry.id);
+                        dedup_key = hash128(buf);
                     }
                     if (is_sugra) {
                         if (!seen.insert(dedup_key).second) return;
@@ -500,21 +521,21 @@ int main(int argc, char* argv[]) {
 
             std::vector<std::vector<std::pair<int,int>>> assignment;
             enumerate(0, assignment);
-        }  // end parallel for over ci
+        }
 
-        // Merge thread-local accumulators into the per-nhc_spec result vectors.
-        // dedup keys include catalog_id, so no cross-thread duplicates here.
-        size_t total_sugra = 0, total_ns = 0;
-        for (auto& v : tl_results) total_sugra += v.size();
-        for (auto& v : tl_nonsugra) total_ns += v.size();
-        results.reserve(total_sugra);
-        nonsugra_results.reserve(total_ns);
-        for (auto& v : tl_results) for (auto& r : v) results.push_back(std::move(r));
-        for (auto& v : tl_nonsugra) for (auto& r : v) nonsugra_results.push_back(std::move(r));
-        tl_results.clear();
-        tl_nonsugra.clear();
-        tl_seen.clear();
-        tl_nonsugra_seen.clear();
+        // Merge per-thread accumulators into single results / nonsugra_results
+        // vectors for the sort + write below.
+        std::vector<NHCExtResult> results;
+        std::vector<NHCExtResult> nonsugra_results;
+        {
+            size_t total_res = 0, total_ns = 0;
+            for (auto& v : tl_results) total_res += v.size();
+            for (auto& v : tl_nonsugra) total_ns += v.size();
+            results.reserve(total_res);
+            nonsugra_results.reserve(total_ns);
+            for (auto& v : tl_results) for (auto& r : v) results.push_back(std::move(r));
+            for (auto& v : tl_nonsugra) for (auto& r : v) nonsugra_results.push_back(std::move(r));
+        }
 
         // Sort
         std::sort(results.begin(), results.end(),

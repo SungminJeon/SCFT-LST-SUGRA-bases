@@ -91,7 +91,8 @@ struct CatEntry {
     int catalog_id;
     std::string catalog_type;
     int base_T;
-    int T, H_charged, V, H_neutral, det, sig_pos, sig_neg, sig_zero;
+    int T, H_charged, V, H_neutral, sig_pos, sig_neg, sig_zero;
+    long long det;
     Eigen::MatrixXi final_IF;
     struct RemTarget { int curve_idx, self_int; double available_cc; };
     std::vector<RemTarget> remaining;
@@ -468,13 +469,13 @@ inline void attach_single_target(
         new_IF(rt.curve_idx, ext_idx) = spec.int_num;
 
         if (!spec.is_hat1 && sig_pos_exceeds_one_fast(new_IF, 193)) continue;
-        auto sig = compute_sig(new_IF);
+        auto sig = compute_sig_fast(new_IF);
         if (!spec.is_hat1) {
             if (sig.sig_pos != 1) continue;
         }
 
-        // hat1: unimodular cannot reach Hirzebruch → reject
-        if (spec.is_hat1 && std::abs(sig.det) == 1) continue;
+        // NOTE: the legacy "hat1 && |det|=1 → reject" skip was removed here to match
+        // phase1 / nhc_ext_phase2 (hat1 |det|=1 entries are kept).
         // |det|=n² filter (skip if hat1 involved)
         if (g_det_sq_mode && !has_hat1(entry, spec.is_hat1) && !is_perfect_square(std::abs(sig.det))) continue;
 
@@ -579,7 +580,7 @@ inline void attach_v6_multi_target(
 
             // LDLT → eigensolve (cheap filters first)
             if (sig_pos_exceeds_one_fast(new_IF, 193)) return;
-            auto sig = compute_sig(new_IF);
+            auto sig = compute_sig_fast(new_IF);
             if (sig.sig_pos != 1) return;
             if (g_det_sq_mode && !has_hat1(entry) && !is_perfect_square(std::abs(sig.det))) return;
 
@@ -648,7 +649,7 @@ inline void attach_mixed_multi_target(
                 }
 
                 if (sig_pos_exceeds_one_fast(new_IF, 193)) return;
-                auto sig = compute_sig(new_IF);
+                auto sig = compute_sig_fast(new_IF);
                 if (sig.sig_pos != 1) return;
 
                 NHCResult nhc = check_nhc(new_IF, cc_budget);
@@ -710,7 +711,7 @@ inline void attach_mixed_multi_target(
                     if (!nhc.passes) return;
 
                     if (sig_pos_exceeds_one_fast(new_IF, 193)) return;
-                    auto sig = compute_sig(new_IF);
+                    auto sig = compute_sig_fast(new_IF);
                     if (sig.sig_pos != 1) return;
                     if (g_det_sq_mode && !has_hat1(entry) && !is_perfect_square(std::abs(sig.det))) return;
 
@@ -760,7 +761,7 @@ inline void attach_generic_mixed(
             }
 
             if (sig_pos_exceeds_one_fast(new_IF, 193)) return;
-            auto sig = compute_sig(new_IF);
+            auto sig = compute_sig_fast(new_IF);
             if (sig.sig_pos != 1) return;
 
             NHCResult nhc = check_nhc(new_IF, cc_budget);
@@ -815,7 +816,7 @@ inline void attach_so7(
             new_IF(ext_idx, m2_curves[b]) = 1; new_IF(m2_curves[b], ext_idx) = 1;
 
             if (sig_pos_exceeds_one_fast(new_IF, 193)) continue;
-            auto sig = compute_sig(new_IF);
+            auto sig = compute_sig_fast(new_IF);
             if (sig.sig_pos != 1) continue;
 
             NHCResult nhc = check_nhc(new_IF, cc_budget);
@@ -873,7 +874,7 @@ inline void attach_so7mix(
                     }
 
                     if (sig_pos_exceeds_one_fast(new_IF, 193)) return;
-                    auto sig = compute_sig(new_IF);
+                    auto sig = compute_sig_fast(new_IF);
                     if (sig.sig_pos != 1) return;
 
                     NHCResult nhc = check_nhc(new_IF, cc_budget);
@@ -931,11 +932,10 @@ inline void attach_hat1_multi_target(
         for (int t : targets) { new_IF(ext_idx, t) = 1; new_IF(t, ext_idx) = 1; }
 
         if (sig_pos_exceeds_one_fast(new_IF, 193)) return;
-        auto sig = compute_sig(new_IF);
+        auto sig = compute_sig_fast(new_IF);
 
-        // hat1: unimodular cannot reach Hirzebruch
-        if (std::abs(sig.det) == 1) return;
-        // hat1: skip |det|=n² filter (not Hirzebruch)
+        // NOTE: legacy "hat1 && |det|=1 → reject" skip removed (kept for parity
+        // with phase1 / nhc_ext_phase2). hat1 also skips the |det|=n² filter.
 
         NHCResult nhc = check_nhc(new_IF, cc_budget);
         if (!nhc.passes) return;
@@ -968,7 +968,7 @@ int main(int argc, char* argv[]) {
     std::string suffix = "";
     for (int i = 2; i < argc; i++) {
         if (std::string(argv[i]) == "--det-sq") g_det_sq_mode = true;
-        else if (std::string(argv[i]) == "--use-lst-T") g_use_lst_T = true;
+        else if (std::string(argv[i]) == "--use-lst-T") { /* now canonical, no-op */ }
         else if (std::string(argv[i]) == "--no-su2") g_no_su2 = true;
         else if (std::string(argv[i]) == "--save-nonsugra") g_save_nonsugra = true;
         else if (suffix.empty()) suffix = argv[i];

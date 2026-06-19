@@ -1,29 +1,39 @@
 # SUGRA Base Generator Pipeline
 
-6D supergravity base classification via incremental external curve attachment.
+6D supergravity block classification via incremental external curve attachment.
+
+## Recent Changes (2026-06) — Performance & Memory
+
+Speed and memory work on the high-`T` pipeline. **All output-preserving** — validated
+byte-identical against the `T=0..10` baseline (full 9-round chain), so the catalogs are
+unchanged, only faster and lower-memory. The `.cat` file format is unchanged, so the
+Mathematica / analysis tooling is unaffected.
+
+**Faster**
+- Incremental signature via a **cached Schur complement** — reuse the base form's inertia
+  instead of a fresh eigensolve per candidate attachment.
+- **NHC-gauge-aware cc** pruning in the cluster enumeration (~74M → <1M candidates).
+- **Faster `.cat` parsing**, **lazy + parallel** eigensolve/SVD, **structural pruning** of
+  the `so7` cluster, and **deferred** full-IF construction (built only after the cheap
+  signature filter passes).
+- Impact: `nhc_ext` at `T=108` **~40–60 min → ~20–40 s**; a heavy chain slice **~30 s → ~12 s**.
+
+**Lower memory**
+- **Sparse intersection-form storage** (store nonzeros, reconstruct on demand) — peak RAM
+  ~30× lower; e.g. the `T=108` chain load drops from ~17 GB to ~1 GB.
+
+**Correctness**
+- Fixed a high-`T` **determinant overflow** (32-bit `int` → `int64`) that corrupted the
+  `|det|` / unimodular filters.
+
+A standalone correctness check for the Schur signature is in `test_schur.cpp` (5000 random
+integer forms, 0 inertia mismatches vs the full eigensolve).
 
 ## Requirements
 
 - C++17 compiler (g++ 9+)
 - [Eigen3](https://eigen.tuxfamily.org/) (`brew install eigen` on macOS, `apt install libeigen3-dev` on Debian/Ubuntu)
 - `unified.cat` (LST catalog, included)
-- **OpenMP** (optional but recommended — see below)
-
-### OpenMP
-
-`gen_sugra_nhc_ext` and `gen_sugra_nhc_ext_phase2` parallelize their main
-enumeration loops with OpenMP. Speedup is roughly 3–4× on an 8-thread machine
-with output bit-exactly preserved relative to the serial run.
-
-| Platform | Default compiler | OpenMP support |
-|----------|------------------|----------------|
-| Linux (gcc) | `g++` | built-in `-fopenmp` |
-| macOS (Homebrew gcc or LLVM) | `g++-13`/`clang++` | built-in `-fopenmp` |
-| macOS (Apple Clang) | `g++` (clang shim) | needs Homebrew `libomp` (`brew install libomp`) |
-
-The Makefile auto-detects which mode applies. If neither is present, it
-prints a warning and falls back to a serial build (no functional change,
-just slower).
 
 ## Build
 
@@ -36,29 +46,6 @@ If Eigen3 is in a non-standard location:
 ```bash
 make EIGEN=/path/to/eigen3
 ```
-
-Control the thread count at run time with `OMP_NUM_THREADS` (e.g.,
-`OMP_NUM_THREADS=8 ./run_pipeline.sh 0 10`). Defaults to the number of
-hardware threads.
-
-### OpenMP-aware wrapper scripts
-
-For convenience, two extra wrappers take the thread count as an argument:
-
-```bash
-./run_pipeline_omp.sh     T_MIN T_MAX [N_THREADS]
-./run_pipeline_su2_omp.sh T_MIN T_MAX [N_THREADS]
-```
-
-Examples (useful when sharing a server):
-
-```bash
-./run_pipeline_omp.sh 0 10 8        # T=0..10, 8 threads
-./run_pipeline_omp.sh 21 30 32      # T=21..30, 32 threads
-./run_pipeline_su2_omp.sh 0 10 16   # same as run_pipeline_su2.sh, 16 threads
-```
-
-If `N_THREADS` is omitted, OpenMP picks the default (all hardware threads).
 
 ## Quick Run
 
@@ -120,6 +107,7 @@ To turn `.cat` files into a LaTeX report:
 | `--no-su2` | Exclude the external that attaches an `su(2)` (i.e. a single `(-2)` curve) only to a `(-1)` LST curve. This single-curve external blows up the combinatorics, so it is skipped by default in production runs. |
 | `--no-223` | Skip the `(-2)-(-2)-(-3)` NHC cluster (`nhc_2_2_3`) external attach. Useful for comparing with references that do not enumerate this cluster; also the slowest cluster, so this mode is much faster. |
 | `--det-sq` | Reject IFs whose `|det|` is not a perfect square (extra geometric constraint). |
+| `--mix-k N` | Override the multi-target enumeration cap `mixed_int_max` (default `5`). Affects `(-2)`/`(-3)` `→` multiple `(-1)` enumeration and the mixed multi-target attach paths (`su2n3mix`, `su8mix`, ...). Higher `N` means broader enumeration and longer runtime. |
 | `--out <dir>` | (Phase 1 only) Override the output directory name. |
 
 ## Per-Phase Binaries
@@ -180,12 +168,77 @@ for (int k = 1; k <= 3; k++)                       // was k <= 2
     add(-3, -1, k, false, "su(3) k=...", "su3");
 ```
 
-`gen_sugra_phase2.cpp` has the **same** `build_all_specs()` block — change both
-files (Phase 1 and Phase 2) to keep single-curve externals consistent across rounds.
+`gen_sugra_phase2.cpp` and `gen_sugra_nhc_ext_phase2.cpp` have the **same**
+`build_all_specs()` block — change all three files (Phase 1 and both Phase 2 variants)
+to keep single-curve externals consistent across rounds.
 
 > Note: `compute_ext_cc()` in the same files maps `(ext_si, target_si, k)` to the
 > central charge. If you add a genuinely new `(ext_si, target_si)` combination,
 > add a matching case there so the c_ext budget check stays correct.
+
+> Important: the `int_num` (3rd argument) and the `k <= 2` loop bound above only
+> govern the **single-target** attach path. The multi-target paths below
+> (v6 multi-target and the mixed multi-target attaches) enumerate `int_num`
+> independently up to `mixed_int_max` (default 5, override with `--mix-k N`).
+
+### Multi-target attachments (v6 multi & mix variants)
+
+In addition to the single-target attaches described above, `gen_sugra_phase1.cpp`
+and `gen_sugra_nhc_ext_phase2.cpp` enumerate multi-target attachments that don't
+appear in the `build_all_specs()` table. These produce their own catalog files
+distinct from the single-curve specs.
+
+#### v6 multi-target (`(-2)` or `(-3)` ext to multiple `(-1)` LST curves)
+
+For each `bare su2` (`ext_si=-2, target_si=-1`) and `bare su3` (`ext_si=-3, target_si=-1`)
+spec, a separate enumeration attaches the external to **multiple `(-1)` LST curves
+simultaneously** with independently chosen intersection numbers:
+
+```cpp
+// gen_sugra_phase1.cpp Mode 3 (v6 multi-target)
+if (spec.ext_si == -2) {
+    max_k = config.mixed_int_max;   // default 5 (mixed_int_max)
+} else if (spec.ext_si == -3) {
+    max_k = config.mixed_int_max;   // default 5
+} else if (spec.ext_si == -4) {
+    max_k = 2;                      // so8 capped at 2 (matches max_level_for_cc)
+} else {
+    max_k = 1;                      // f4 and higher
+}
+enumerate_subsets_v2(m1_curves, 2, max_tgt, [&](targets) {
+    enumerate_int_nums(targets.size(), max_k, [&](int_nums) { ... });
+});
+```
+
+These entries land in the standard `su2.cat` / `su3.cat` / `so8.cat` etc. files,
+but with multiple `(-1)` connections each carrying its own `int_num`. The
+single-target spec table's `k <= 2` does **not** apply here.
+
+`gen_sugra_nhc_ext_phase2.cpp` has a matching `attach_v6_multi` block with the same
+caps. Keep both in sync when changing the limits.
+
+#### Mix variants (separate catalog files)
+
+The mix variants attach a single external curve to a **non-`(-1)` LST target plus
+additional `(-1)` LST curves simultaneously**, forming a composite NHC-like
+sub-structure. Each variant produces its own `.cat` file under the variant tag:
+
+| tag | physical attach | source |
+|---|---|---|
+| `su2n3mix` | `(-2)` ext → one `(-3)` target (int=1) + subset of `(-1)` curves (int=1..mixed_int_max) | `gen_sugra_phase1.cpp` Mode 4 |
+| `su8mix` | `(-2)` ext → one `(-4)` target (int=2) + subset of `(-1)` curves | `gen_sugra_phase1.cpp` Mode 5 |
+| `su3n2mix` | `(-3)` ext → one `(-2)` target (int=1) + subset of `(-1)` curves (int=1) | `try_mixed` lambda |
+| `so16n2mix` | `(-4)` ext → one `(-2)` target (int=2) + subset of `(-1)` curves (int=1) | `try_mixed` lambda |
+| `so7` | `(-3)` ext → two `(-2)` LST curves (no `(-1)` connection), forms `(-2)-(-3)-(-2) = SO(7)` chain | inline block |
+| `so7mix` | `so7` + additional `(-1)` connections | inline block |
+
+The mixed multi-target enumeration cap for the `(-1)` connections is the same
+`mixed_int_max` knob (`--mix-k N`). The `(-3)`, `(-4)`, and `(-2)` non-`(-1)`
+targets always use the fixed intersection number shown above (`int=1` or `int=2`).
+
+`gen_sugra_nhc_ext_phase2.cpp` has matching attach functions in `attach_mixed_multi`
+(calling `attach_mixed_generic` for the four `mix` variants and inline blocks for
+`so7` / `so7mix`).
 
 ### NHC cluster externals (`gen_sugra_nhc_ext.cpp`, `gen_sugra_nhc_ext_phase2.cpp`)
 

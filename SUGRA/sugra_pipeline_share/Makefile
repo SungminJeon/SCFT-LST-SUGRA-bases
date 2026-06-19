@@ -1,8 +1,8 @@
 CXX      = g++
 CXXFLAGS = -std=c++17 -O2 -I.
 
-# OpenMP — try plain -fopenmp first (gcc, Homebrew LLVM); fall back to Homebrew libomp
-# on Apple Clang where -fopenmp is not directly supported.
+# OpenMP — try plain -fopenmp first (gcc, Homebrew LLVM); fall back to
+# Homebrew libomp on Apple Clang where -fopenmp is not directly supported.
 ifeq ($(shell $(CXX) -fopenmp -dM -E -x c++ /dev/null > /dev/null 2>&1 && echo yes),yes)
   OMP_CXXFLAGS = -fopenmp
   OMP_LDFLAGS  = -fopenmp
@@ -65,13 +65,13 @@ gen_sugra_phase2: gen_sugra_phase2.cpp $(COMMON_OBJ) sugra_generator.h theory_su
 gen_sugra_phase3: gen_sugra_phase3.cpp $(COMMON_OBJ) sugra_generator.h theory_sugra.h
 	$(CXX) $(CXXFLAGS) -o $@ $< $(COMMON_OBJ) $(LDFLAGS)
 
-cat2tex: cat2tex.cpp $(COMMON_OBJ) sugra_generator.h theory_sugra.h
-	$(CXX) $(CXXFLAGS) -o $@ $< $(COMMON_OBJ) $(LDFLAGS)
-
 gen_sugra_nhc_ext: gen_sugra_nhc_ext.cpp $(COMMON_OBJ) sugra_generator.h theory_sugra.h
 	$(CXX) $(CXXFLAGS) -o $@ $< $(COMMON_OBJ) $(LDFLAGS)
 
 gen_sugra_nhc_ext_phase2: gen_sugra_nhc_ext_phase2.cpp $(COMMON_OBJ) sugra_generator.h theory_sugra.h
+	$(CXX) $(CXXFLAGS) -o $@ $< $(COMMON_OBJ) $(LDFLAGS)
+
+cat2tex: cat2tex.cpp $(COMMON_OBJ) sugra_generator.h theory_sugra.h
 	$(CXX) $(CXXFLAGS) -o $@ $< $(COMMON_OBJ) $(LDFLAGS)
 
 clean:

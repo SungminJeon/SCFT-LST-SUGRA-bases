@@ -24,6 +24,83 @@
 #include <algorithm>
 #include <functional>
 #include <numeric>  // std::gcd
+#include <unordered_set>
+#include <cstdint>
+#include <string_view>
+
+// ############################################################################
+// PART 0: 128-bit dedup key (binary fingerprint + double hash)
+// ############################################################################
+// Two independent 64-bit hashes (FNV-1a forward and std::hash<string_view>)
+// give effective ~128-bit collision resistance: P(collision) ≈ N²/2^128, which
+// is ~10⁻²² for N=10⁹ — safely below numerical noise at any catalog size we
+// will run.
+
+struct DedupKey128 {
+    uint64_t lo, hi;
+    bool operator==(const DedupKey128& o) const noexcept {
+        return lo == o.lo && hi == o.hi;
+    }
+};
+
+struct DedupKey128Hash {
+    size_t operator()(const DedupKey128& k) const noexcept {
+        // mix lo and hi; both halves already well-distributed
+        return (size_t)(k.lo ^ (k.hi * 0x9E3779B97F4A7C15ULL));
+    }
+};
+
+inline uint64_t fnv1a_64(const uint8_t* data, size_t len) {
+    const uint64_t basis = 0xcbf29ce484222325ULL;
+    const uint64_t prime = 0x100000001b3ULL;
+    uint64_t h = basis;
+    for (size_t i = 0; i < len; i++) {
+        h ^= data[i];
+        h *= prime;
+    }
+    return h;
+}
+
+// Two-hash combination: FNV-1a forward + std::hash<string_view> (typically
+// MurmurHash2/3 family). Different hash families → independent enough for
+// practical 128-bit collision resistance.
+// Second 64-bit half of the 128-bit dedup key. Uses FNV-1a with a different
+// offset basis from the first half so the two hashes are statistically
+// independent. std::hash<string_view> on some platforms (e.g. libc++'s
+// __murmur2_or_cityhash with process-randomized seed) is not guaranteed to be
+// run-to-run deterministic; using a pure FNV-1a here guarantees that
+// dedup_key_v2_binary returns the same key for the same buffer across
+// processes and across OpenMP runs.
+inline uint64_t fnv1a_64_alt(const uint8_t* data, size_t len) {
+    // Alternate basis (~ FNV-1a basis XOR'd with a 64-bit constant) to make the
+    // second hash effectively independent of the first.
+    const uint64_t basis = 0xcbf29ce484222325ULL ^ 0xa5a5a5a5a5a5a5a5ULL;
+    const uint64_t prime = 0x100000001b3ULL;
+    uint64_t h = basis;
+    for (size_t i = 0; i < len; i++) {
+        h ^= data[i];
+        h *= prime;
+    }
+    return h;
+}
+
+inline DedupKey128 hash128(const std::vector<uint8_t>& buf) {
+    DedupKey128 k;
+    k.lo = fnv1a_64(buf.data(), buf.size());
+    k.hi = fnv1a_64_alt(buf.data(), buf.size());
+    return k;
+}
+
+inline void buf_append_i32(std::vector<uint8_t>& buf, int32_t v) {
+    for (int i = 0; i < 4; i++) buf.push_back((uint8_t)((v >> (i*8)) & 0xff));
+}
+inline void buf_append_i64(std::vector<uint8_t>& buf, int64_t v) {
+    for (int i = 0; i < 8; i++) buf.push_back((uint8_t)((v >> (i*8)) & 0xff));
+}
+inline void buf_append_bytes(std::vector<uint8_t>& buf, const void* data, size_t len) {
+    const uint8_t* p = (const uint8_t*)data;
+    buf.insert(buf.end(), p, p + len);
+}
 
 // ############################################################################
 // PART 1: GAUGE DATA + CENTRAL CHARGE
@@ -482,7 +559,8 @@ inline void enhance_hat1_gauge(NHCResult& nhc,
 // ############################################################################
 
 struct SigInfo {
-    int sig_pos, sig_neg, sig_zero, det;
+    int sig_pos, sig_neg, sig_zero;
+    long long det;
 };
 
 // Fast signature check using LDLT decomposition (no eigenvalues computed).
@@ -548,11 +626,75 @@ inline bool check_extended_sig(const Eigen::MatrixXi& IF, int T,
     return pos == 1;
 }
 
-inline bool is_perfect_square(int n) {
+// Sentinel returned by exact_det when the true determinant does not fit in the
+// supported range. It is >1 in magnitude AND prime (never a perfect square), so
+// the |det|<=1 and is_perfect_square filters both conservatively reject it.
+static constexpr long long DET_TOOLARGE = 9223372036854775783LL; // largest prime < 2^63
+
+// Exact integer determinant via fraction-free (Bareiss) Gaussian elimination.
+// Intersection forms are exact integer matrices, so this avoids the precision
+// loss of Fd.determinant() (double, inexact past 2^53) and the int truncation
+// of casting it back. Intermediate minors are bounded by Hadamard's inequality
+// and grow with n; if any minor would exceed the __int128 budget we bail to
+// DET_TOOLARGE (such a |det| is astronomically large — neither unimodular nor a
+// small perfect square, so the conservative reject is physically correct).
+inline long long exact_det_impl(const Eigen::MatrixXi& IF) {
+    int n = IF.rows();
+    if (n == 0) return 1;  // det of empty matrix = 1 (unused, but well-defined)
+    std::vector<__int128> a((size_t)n * n);
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++)
+            a[(size_t)i * n + j] = (__int128)IF(i, j);
+    auto at = [&](int i, int j) -> __int128& { return a[(size_t)i * n + j]; };
+    // Keep every minor within ±GUARD so that products of two minors stay inside
+    // __int128 (2^62 * 2^62 = 2^124 < 2^127). GUARD < 2^63 ⇒ final det fits int64.
+    const __int128 GUARD = ((__int128)1) << 62;
+    __int128 prev = 1;
+    int sign = 1;
+    for (int k = 0; k < n - 1; k++) {
+        if (at(k, k) == 0) {
+            int p = -1;
+            for (int i = k + 1; i < n; i++) if (at(i, k) != 0) { p = i; break; }
+            if (p < 0) return 0;  // zero column at/below pivot ⇒ singular ⇒ det 0
+            for (int j = 0; j < n; j++) std::swap(at(k, j), at(p, j));
+            sign = -sign;
+        }
+        __int128 piv = at(k, k);
+        for (int i = k + 1; i < n; i++) {
+            __int128 aik = at(i, k);
+            for (int j = k + 1; j < n; j++) {
+                __int128 v = (at(i, j) * piv - aik * at(k, j)) / prev;  // Bareiss: exact
+                if (v > GUARD || v < -GUARD) return DET_TOOLARGE;
+                at(i, j) = v;
+            }
+            at(i, k) = 0;
+        }
+        prev = piv;
+    }
+    return (long long)((__int128)sign * at(n - 1, n - 1));
+}
+
+// Public exact determinant (currently unused in the hot path — compute_sig uses
+// det_cap(∏spectrum); kept for a future lazy-exact --det-sq path).
+inline long long exact_det(const Eigen::MatrixXi& IF) { return exact_det_impl(IF); }
+
+inline bool is_perfect_square(long long n) {
     if (n < 0) return false;
     if (n == 0) return true;  // det=0: valid (fiber class exists)
-    int s = (int)std::round(std::sqrt((double)n));
-    return s * s == n;
+    long long s = (long long)std::llround(std::sqrt((double)n));
+    // Check neighbours to absorb any double rounding near the boundary.
+    for (long long t = (s > 0 ? s - 1 : 0); t <= s + 1; t++)
+        if ((__int128)t * t == (__int128)n) return true;
+    return false;
+}
+
+// Capped determinant from a floating product of the spectrum (eigenvalues, or
+// LDLT diagonal D since det(A)=∏D_i). O(n) — replaces the O(n^3) __int128 Bareiss
+// in the hot path. Same double precision as the legacy Fd.determinant(); values
+// beyond double's exact-integer range (~2^52) are not needed by any filter
+// (|det|<=1 fails; perfect-square only matters for small dets) → DET_TOOLARGE.
+inline long long det_cap(double pdet) {
+    return (std::abs(pdet) > 4.5e15) ? DET_TOOLARGE : (long long)std::llround(pdet);
 }
 
 inline SigInfo compute_sig(const Eigen::MatrixXi& IF) {
@@ -563,13 +705,64 @@ inline SigInfo compute_sig(const Eigen::MatrixXi& IF) {
     // EigenvaluesOnly: ~2× faster than full diagonalization (we don't need eigenvectors)
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es;
     es.compute(Fd, Eigen::EigenvaluesOnly);
+    double pdet = 1.0;
     for (int i = 0; i < n; i++) {
         double ev = es.eigenvalues()(i);
+        pdet *= ev;
         if (std::abs(ev) < 1e-8) s.sig_zero++;
         else if (ev > 0) s.sig_pos++;
         else s.sig_neg++;
     }
-    s.det = (int)std::round(Fd.determinant());
+    s.det = det_cap(pdet);
+    return s;
+}
+
+// Hybrid signature: LDLT fast path + eigensolve fallback.
+// Sylvester's law: D vector from LDLT gives sig_pos/sig_neg/sig_zero counts
+// directly (matches sig_pos_exceeds_one_fast's reliability gate). For n=193
+// this avoids the per-leaf eigensolve in the common (reliable LDLT) case.
+inline SigInfo compute_sig_fast(const Eigen::MatrixXi& IF) {
+    SigInfo s = {0, 0, 0, 0};
+    int n = IF.rows();
+    if (n == 0) return s;
+    Eigen::MatrixXd Fd = IF.cast<double>();
+
+    Eigen::LDLT<Eigen::MatrixXd> ldlt(Fd);
+    auto D = ldlt.vectorD();
+    double min_abs = std::numeric_limits<double>::infinity();
+    for (int i = 0; i < n; i++) {
+        double a = std::abs(D(i));
+        if (a < min_abs) min_abs = a;
+    }
+
+    if (min_abs >= 1e-6) {
+        // LDLT reliable — extract signature + det.
+        double pdet = 1.0;
+        for (int i = 0; i < n; i++) {
+            double d = D(i);
+            pdet *= d;  // det(A) = ∏D_i (permutation determinant squares to 1)
+            if (std::abs(d) < 1e-8) s.sig_zero++;
+            else if (d > 0) s.sig_pos++;
+            else s.sig_neg++;
+        }
+        s.det = det_cap(pdet);
+        return s;
+    }
+
+    // Fallback: eigensolve when LDLT pivots are near zero (catastrophic
+    // cancellation in D signs is possible). Threshold 1e-6 matches the
+    // existing sig_pos_exceeds_one_fast gate.
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es;
+    es.compute(Fd, Eigen::EigenvaluesOnly);
+    double pdet = 1.0;
+    for (int i = 0; i < n; i++) {
+        double ev = es.eigenvalues()(i);
+        pdet *= ev;
+        if (std::abs(ev) < 1e-8) s.sig_zero++;
+        else if (ev > 0) s.sig_pos++;
+        else s.sig_neg++;
+    }
+    s.det = det_cap(pdet);
     return s;
 }
 
@@ -583,14 +776,16 @@ inline SigInfo compute_sig(const Eigen::MatrixXi& IF, std::vector<double>& eigen
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es;
     es.compute(Fd, Eigen::EigenvaluesOnly);
     eigenvalues_out.resize(n);
+    double pdet = 1.0;
     for (int i = 0; i < n; i++) {
         double ev = es.eigenvalues()(i);
         eigenvalues_out[i] = ev;
+        pdet *= ev;
         if (std::abs(ev) < 1e-8) s.sig_zero++;
         else if (ev > 0) s.sig_pos++;
         else s.sig_neg++;
     }
-    s.det = (int)std::round(Fd.determinant());
+    s.det = det_cap(pdet);
     return s;
 }
 
@@ -706,7 +901,123 @@ inline double compute_true_c_ext_fiber(const Eigen::MatrixXi& IF,
     return total;
 }
 
+// Cached variant: kernel X and lst_idx are pre-computed once per (LST, ext_set) pair.
+// X.size() == 0 means kernel undefined → return -1.0 (caller skips filter).
+// This skips the per-leaf SVD which is the dominant cost in enumeration.
+inline double compute_true_c_ext_fiber_cached(const Eigen::MatrixXi& IF,
+                                               const NHCResult& nhc,
+                                               const std::set<int>& ext_indices,
+                                               const std::vector<int>& lst_idx,
+                                               const Eigen::VectorXi& X) {
+    if (X.size() == 0) return -1.0;
+    int n = IF.rows();
+    int m = (int)lst_idx.size();
+    double total = 0.0;
+    for (int e : ext_indices) {
+        if (e < 0 || e >= n) continue;
+        if (e >= (int)nhc.curve_gauges.size()) continue;
+        if (nhc.curve_gauges[e].dim == 0) continue;
+        int k_eff = 0;
+        for (int i = 0; i < m; i++) k_eff += IF(e, lst_idx[i]) * X(i);
+        if (k_eff <= 0) continue;
+        total += central_charge(nhc.curve_gauges[e], k_eff);
+    }
+    return total;
+}
+
 static double g_true_c_ext_max = 16.0;  // true (fiber-weighted) c_ext cap
+
+// ############################################################################
+// PART 4b: FAST INCREMENTAL SIGNATURE (Schur complement / Haynsworth)
+// ############################################################################
+// A base IF B (n×n, symmetric) is shared across MANY candidate attachments that
+// differ only in the appended curves. Precompute B's inertia + pseudo-inverse
+// ONCE; then each candidate M = [[B, A],[Aᵀ, D]] (k appended curves) gets its
+// signature in O(n²k + (z+k)³) instead of a fresh O(n³) eigensolve/LDLT.
+//
+// Haynsworth inertia additivity: integrating out the invertible (non-null) part
+// of B leaves a (z+k)×(z+k) effective form S:
+//     In(M) = (p, q, 0)  +  In(S),
+//     S = [[ NᵀBN = 0_z ,  NᵀA ],
+//          [   AᵀN      ,  D − AᵀB⁺A ]]
+// where p,q,z = #pos/#neg/#null eigenvalues of B, N = (n×z) null eigenvectors,
+// B⁺ = pseudo-inverse of B on the non-null subspace. So:
+//     sig_pos(M) = p + sig_pos(S),  sig_neg(M) = q + sig_neg(S),  sig_zero(M)=sig_zero(S).
+//
+// LST base (phase1 / nhc_ext): inertia (0, n−1, 1) → z=1 null = tensionless dir;
+//   S is (1+k); a valid SUGRA attach must lift the null to exactly +1.
+// Lorentzian SUGRA base (phase2 / phase3): inertia (1, T, 0) → z=0; S is plain
+//   k×k (B⁻¹ regular); the appended curves must add NO new positive eigenvalue.
+// Same code, only the base B differs.
+struct BaseSchur {
+    int n = 0;
+    int p = 0, q = 0;          // # positive / negative eigenvalues of B
+    Eigen::MatrixXd Nnull;     // n×z null eigenvectors
+    Eigen::MatrixXd Bpinv;     // n×n pseudo-inverse of B on the non-null subspace
+    double zero_tol = 0.0;     // threshold used to classify null eigenvalues of B
+};
+
+inline BaseSchur precompute_base_schur(const Eigen::MatrixXi& B) {
+    BaseSchur bs;
+    int n = B.rows();
+    bs.n = n;
+    if (n == 0) return bs;
+    Eigen::MatrixXd Bd = B.cast<double>();
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es(Bd);
+    const auto& lam = es.eigenvalues();
+    const auto& U = es.eigenvectors();
+    double scale = lam.cwiseAbs().maxCoeff();
+    double tol = 1e-7 * std::max(scale, 1.0);
+    bs.zero_tol = tol;
+    bs.Bpinv = Eigen::MatrixXd::Zero(n, n);
+    std::vector<int> null_cols;
+    for (int i = 0; i < n; i++) {
+        double l = lam(i);
+        if (std::abs(l) <= tol) { null_cols.push_back(i); }
+        else {
+            if (l > 0) bs.p++; else bs.q++;
+            bs.Bpinv.noalias() += (1.0 / l) * U.col(i) * U.col(i).transpose();
+        }
+    }
+    bs.Nnull.resize(n, (int)null_cols.size());
+    for (int j = 0; j < (int)null_cols.size(); j++) bs.Nnull.col(j) = U.col(null_cols[j]);
+    return bs;
+}
+
+// Full signature of M (size (n+k)×(n+k)), whose top-left n×n block is the base B
+// that produced bs. pos_tol classifies the (z+k)×(z+k) Schur eigenvalues.
+inline SigInfo schur_sig(const BaseSchur& bs, const Eigen::MatrixXi& M, double pos_tol = 1e-8) {
+    SigInfo s = {0, 0, 0, 0};
+    int N = M.rows();
+    int n = bs.n;
+    int k = N - n;
+    if (k < 0) return s;
+    if (k == 0) { s.sig_pos = bs.p; s.sig_neg = bs.q; s.sig_zero = (int)bs.Nnull.cols(); return s; }
+    int z = (int)bs.Nnull.cols();
+    Eigen::MatrixXd A(n, k), D(k, k);
+    for (int j = 0; j < k; j++) {
+        for (int i = 0; i < n; i++) A(i, j) = (double)M(i, n + j);
+        for (int i = 0; i < k; i++) D(i, j) = (double)M(n + i, n + j);
+    }
+    Eigen::MatrixXd S = Eigen::MatrixXd::Zero(z + k, z + k);
+    S.block(z, z, k, k) = D - A.transpose() * (bs.Bpinv * A);  // cluster Schur complement
+    if (z > 0) {
+        Eigen::MatrixXd NtA = bs.Nnull.transpose() * A;        // z×k null coupling
+        S.block(0, z, z, k) = NtA;
+        S.block(z, 0, k, z) = NtA.transpose();
+        // S.block(0,0,z,z) stays 0 (= NᵀBN)
+    }
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es(S, Eigen::EigenvaluesOnly);
+    int sp = 0, sn = 0, sz = 0;
+    for (int i = 0; i < z + k; i++) {
+        double e = es.eigenvalues()(i);
+        if (e > pos_tol) sp++; else if (e < -pos_tol) sn++; else sz++;
+    }
+    s.sig_pos = bs.p + sp;
+    s.sig_neg = bs.q + sn;
+    s.sig_zero = sz;
+    return s;
+}
 
 // ############################################################################
 // PART 5: ANOMALY
@@ -717,38 +1028,29 @@ struct AnomalyResult {
     int H_neutral;      // 273 + V - H_charged - 29T >= 0
 };
 
-// Global flags for LST-T mode
-static bool g_use_lst_T = false;
+// LST-T anomaly mode: T = LST tensor count (number of curves in the LST sub-IF),
+// set by the caller per input entry before invoking compute_anomaly. This is
+// the canonical anomaly convention for the pipeline; the legacy "T = sig_neg"
+// path has been removed.
 static int g_current_base_T = 0;
 #ifdef _OPENMP
-// g_current_base_T mutates per entry; threadprivate so each OpenMP thread keeps its own.
-// g_use_lst_T is set once before parallel regions (read-only inside) — no threadprivate needed.
+// Each OpenMP thread mutates g_current_base_T independently per input entry.
 #pragma omp threadprivate(g_current_base_T)
 #endif
 
-inline AnomalyResult compute_anomaly(const Eigen::MatrixXi& IF, const NHCResult& nhc) {
+inline AnomalyResult compute_anomaly(const Eigen::MatrixXi& /*IF*/, const NHCResult& nhc) {
     AnomalyResult a;
-
-    if (g_use_lst_T) {
-        a.T = g_current_base_T;
-    } else {
-        // T = sig_neg
-        Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es(IF.cast<double>());
-        a.T = 0;
-        for (int i = 0; i < IF.rows(); i++)
-            if (es.eigenvalues()(i) < -1e-8) a.T++;
-    }
-
+    a.T = g_current_base_T;
     a.H_charged = nhc.total_H();
     a.V = nhc.total_V();
     a.H_neutral = 273 + a.V - a.H_charged - 29 * a.T;
     return a;
 }
 
-// Overload: use pre-computed SigInfo to avoid redundant eigensolve
-inline AnomalyResult compute_anomaly(const NHCResult& nhc, const SigInfo& sig) {
+// Overload kept for API symmetry; `sig` is unused under the LST-T convention.
+inline AnomalyResult compute_anomaly(const NHCResult& nhc, const SigInfo& /*sig*/) {
     AnomalyResult a;
-    a.T = g_use_lst_T ? g_current_base_T : sig.sig_neg;
+    a.T = g_current_base_T;
     a.H_charged = nhc.total_H();
     a.V = nhc.total_V();
     a.H_neutral = 273 + a.V - a.H_charged - 29 * a.T;
@@ -965,9 +1267,6 @@ struct SUGRAConfig {
     bool largeint_mixed = false;   // skip single-target, only NHC-forming
     int mixed_int_max = 5;  // default: enumerate int_nums up to 5
 
-    // LST-T mode: use base_T (LST tensor number) for anomaly instead of sig_neg
-    bool use_lst_T = false;
-
     // Save non-SUGRA bases (anomaly fail or reject_nonuni fail)
     bool save_nonsugra = false;
 };
@@ -1114,7 +1413,7 @@ inline std::vector<SUGRAResult> generate_from_IF(
 {
     std::vector<SUGRAResult> results;
     
-    auto base_sig = compute_sig(base_IF);
+    auto base_sig = compute_sig_fast(base_IF);
     if (base_sig.sig_neg > config.T_max) return results;
     
     auto cands = find_candidates(base_IF, rules, config.cc_budget);
@@ -1123,7 +1422,7 @@ inline std::vector<SUGRAResult> generate_from_IF(
         // No rule_allows_base check for dummy LSTs (all rules allowed)
         
         Eigen::MatrixXi new_IF = attach_curve(base_IF, c.target_idx, c.ext_si, c.int_num);
-        auto new_sig = compute_sig(new_IF);
+        auto new_sig = compute_sig_fast(new_IF);
         
         if (new_sig.sig_neg > config.T_max) continue;
         if (config.check_determinant && std::abs(new_sig.det) != 1) continue;
@@ -1172,7 +1471,7 @@ inline std::vector<SUGRAResult> generate_from_entry(
     Eigen::MatrixXi base_IF = reconstruct_IF(entry);
     if (base_IF.rows() == 0) return results;
     
-    auto base_sig = compute_sig(base_IF);
+    auto base_sig = compute_sig_fast(base_IF);
     if (base_sig.sig_neg > config.T_max) return results;
     
     auto cands = find_candidates(base_IF, rules, config.cc_budget);
@@ -1181,7 +1480,7 @@ inline std::vector<SUGRAResult> generate_from_entry(
         if (!rule_allows_base(rules[c.rule_idx], entry)) continue;
         
         Eigen::MatrixXi new_IF = attach_curve(base_IF, c.target_idx, c.ext_si, c.int_num);
-        auto new_sig = compute_sig(new_IF);
+        auto new_sig = compute_sig_fast(new_IF);
         
         if (new_sig.sig_neg > config.T_max) continue;
         if (config.check_determinant && std::abs(new_sig.det) != 1) continue;

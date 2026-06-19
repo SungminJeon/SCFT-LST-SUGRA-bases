@@ -47,13 +47,17 @@ inline std::vector<ExternalSpec> build_all_specs(){
     a(-5,-1,1,false,"$\\mathfrak{f}_4$","f4");a(-6,-1,1,false,"$\\mathfrak{e}_6$","e6");
     a(-7,-1,1,false,"$\\mathfrak{e}_7'$","e7p");a(-8,-1,1,false,"$\\mathfrak{e}_7$","e7");
     a(-12,-1,1,false,"$\\mathfrak{e}_8$","e8");
-    a(-1,-1,1,true,"$\\hat{1}{\\to}1$","hat1m1");a(-1,-2,1,true,"$\\hat{1}{\\to}2$","hat1m2");return sp;}
+    a(-1,-1,1,true,"$\\hat{1}{\\to}1$","hat1m1");a(-1,-2,1,true,"$\\hat{1}{\\to}2$","hat1m2");
+    // 2 / 2mix: gauge-less (-2) attached to LST (-2) that is part of nhc_2_3.
+    a(-2,-2,1,false,"$(\\!-\\!2){\\to}(\\!-\\!2)$","2");
+    a(-2,-2,1,false,"$(\\!-\\!2)_{mix}$","2mix");
+    return sp;}
 
 // === Phase 1 loader ===
 struct Phase1Entry {
     int entry_id,spec_id;std::string spec_tag;int catalog_id;std::string catalog_type;
     int base_T,n_base,target_idx,ext_curve_idx;std::vector<int>hat1_multi_targets;
-    int T,H_charged,V,H_neutral,det,sig_pos,sig_neg,sig_zero;Eigen::MatrixXi final_IF;
+    int T,H_charged,V,H_neutral,sig_pos,sig_neg,sig_zero;long long det;Eigen::MatrixXi final_IF;
     struct RemTarget{int curve_idx,self_int;double available_cc;};std::vector<RemTarget>remaining;};
 std::vector<Phase1Entry> load_phase1_cat(const std::string&fn){
     std::vector<Phase1Entry>es;std::ifstream f(fn);if(!f)return es;std::string line;Phase1Entry c;bool in=false;
@@ -225,10 +229,13 @@ CritInfo compute_crit(const Eigen::MatrixXi&IF,const std::set<int>&h1){CritInfo 
 // === Main ===
 int main(int argc,char*argv[]){
     if(argc<2){std::cerr<<"Usage: "<<argv[0]<<" <phase1_dir> [T_sugra_max=193]\n"
-                        <<"       "<<argv[0]<<" --cross <dirA> <dirB> [T_sugra_max=193]\n";return 1;}
+                        <<"       "<<argv[0]<<" --cross <dirA> <dirB> [T_sugra_max=193]\n"
+                        <<"       "<<argv[0]<<" --pair-tag <tagA> <tagB> <dir> [T_sugra_max=193]\n";return 1;}
 
     bool cross_mode = false;
+    bool pair_tag_mode = false;
     std::string phase1_dir, dirA, dirB;
+    std::string pair_tagA, pair_tagB;
     int T_sugra_max = 193;
 
     if (std::string(argv[1]) == "--cross") {
@@ -238,6 +245,14 @@ int main(int argc,char*argv[]){
         if (argc > 4) T_sugra_max = std::atoi(argv[4]);
         std::cout << "=== gen_sugra_phase3: CROSS glue ===\n"
                   << "DirA: " << dirA << "\nDirB: " << dirB << "\n\n";
+    } else if (std::string(argv[1]) == "--pair-tag") {
+        pair_tag_mode = true;
+        if (argc < 5) { std::cerr << "Need <tagA> <tagB> <dir> for --pair-tag\n"; return 1; }
+        pair_tagA = argv[2]; pair_tagB = argv[3]; phase1_dir = argv[4];
+        if (argc > 5) T_sugra_max = std::atoi(argv[5]);
+        std::cout << "=== gen_sugra_phase3: PAIR-TAG glue ===\n"
+                  << "TagA: " << pair_tagA << "  TagB: " << pair_tagB
+                  << "\nDir: " << phase1_dir << "\n\n";
     } else {
         phase1_dir = argv[1];
         T_sugra_max = (argc > 2) ? std::atoi(argv[2]) : 193;
@@ -289,6 +304,16 @@ int main(int argc,char*argv[]){
     if (cross_mode) {
         total_loaded += load_dir(dirA, 0, all_specs, p1s);
         total_loaded += load_dir(dirB, 1, all_specs, p1s);
+    } else if (pair_tag_mode) {
+        // Load only the two requested tags from one dir.
+        std::vector<ExternalSpec> only;
+        for (auto& s : all_specs) if (s.tag == pair_tagA || s.tag == pair_tagB) only.push_back(s);
+        if (only.size() < 2) {
+            std::cerr << "Could not find both tags '" << pair_tagA << "' and '"
+                      << pair_tagB << "' in spec list\n";
+            return 1;
+        }
+        total_loaded += load_dir(phase1_dir, 0, only, p1s);
     } else {
         total_loaded += load_dir(phase1_dir, 0, all_specs, p1s);
     }
@@ -298,128 +323,158 @@ int main(int argc,char*argv[]){
     // === Scan pairs ===
     std::vector<Phase3Result> results;
     int tried = 0, passed = 0;
+    int rej_sig = 0, rej_nhc = 0, rej_enhance = 0, rej_cext = 0, rej_anom = 0, rej_cc = 0, rej_bdsig = 0;
 
-    for (auto& [tag, entries] : p1s) {
-        const ExternalSpec* spec = entries[0].spec;
-        int spec_pass = 0;
-        int n = (int)entries.size();
+    // Pair processor: tries to glue A,B through their externals. spec controls
+    // gauge enhancement target/hat1 handling and tagging of the result.
+    // result_tag overrides spec->tag for the stored result (used in pair-tag mode).
+    auto process_pair = [&](P1Entry& A, P1Entry& B, const ExternalSpec* spec,
+                             const std::string& result_tag) -> bool {
+        // LST-T convention for the glued anomaly: sum of each side's LST
+        // tensor count (BASE field 3, base_T) plus 1 for the shared external.
+        int T_lst = A.entry.base_T + B.entry.base_T + 1;
+        int T_est = A.entry.T + B.entry.T - 1;
+        int T_need = std::max(A.T_min, B.T_min);
+        if (T_est < T_need) return false;
+        if (T_est > T_sugra_max) return false;
 
-        for (int i = 0; i < n; i++) {
-            for (int j = i; j < n; j++) {
-                auto& A = entries[i];
-                auto& B = entries[j];
+        tried++;
+        auto gr = glue_through_external(A.entry.final_IF, A.entry.ext_curve_idx,
+                                         B.entry.final_IF, B.entry.ext_curve_idx);
 
-                // Cross mode: only glue entries from different sources
-                if (cross_mode && A.source == B.source) continue;
+        auto sig = compute_sig_fast(gr.IF);
+        int T_glued = sig.sig_neg;
+        if (sig.sig_pos != 1) { rej_sig++; return false; }
+        if (T_glued > T_sugra_max) { rej_sig++; return false; }
 
-                // Pre-filter: T_est must be in valid range
-                int T_est = A.entry.T + B.entry.T - 1;
-                int T_need = std::max(A.T_min, B.T_min);
-                if (T_est < T_need) continue;
-                if (T_est > T_sugra_max) continue;
+        NHCResult nhc = check_nhc(gr.IF, cc);
+        if (!nhc.passes) { rej_nhc++; return false; }
 
-                tried++;
-
-                auto gr = glue_through_external(A.entry.final_IF, A.entry.ext_curve_idx,
-                                                 B.entry.final_IF, B.entry.ext_curve_idx);
-
-                auto sig = compute_sig(gr.IF);
-                int T_glued = sig.sig_neg;
-                if (sig.sig_pos != 1) continue;
-                if (T_glued > T_sugra_max) continue;
-
-                NHCResult nhc = check_nhc(gr.IF, cc);
-                if (!nhc.passes) continue;
-
-                // Gauge enhancement on shared external — only if NOT already part of NHC cluster
-                // If shared (-2) connects to (-3) in the glued IF, check_nhc already handles it
-                {
-                    bool in_nhc_cluster = false;
-                    if (gr.shared_ext_idx < (int)nhc.curve_cluster.size() &&
-                        nhc.curve_cluster[gr.shared_ext_idx] >= 0) {
-                        // Shared external is part of an NHC cluster — skip enhancement
-                        in_nhc_cluster = true;
-                    }
-                    if (!in_nhc_cluster) {
-                        if (spec->is_hat1)
-                            enhance_hat1_gauge(nhc, gr.IF, gr.shared_ext_idx, spec->target_si, cc);
-                        else if (spec->ext_si == -2 && spec->target_si == -1)
-                            enhance_external_m2_gauge(nhc, gr.IF, gr.shared_ext_idx, spec->target_si, cc);
-                    }
-                }
-                if (!nhc.passes) continue;
-
-                // Proper c_ext ≤ 16 prune (NHC-aware bridge-level): ext = shared external
-                {
-                    std::set<int> ext_set = {gr.shared_ext_idx};
-                    if (compute_proper_c_ext(gr.IF, nhc, ext_set) > g_proper_c_ext_max + 1e-9)
-                        continue;
-                }
-
-                AnomalyResult anom = compute_anomaly(gr.IF, nhc);
-                if (anom.H_neutral < 0) continue;
-
-                // CC budget
-                bool cc_ok = true;
-                int nn = gr.IF.rows();
-                for (int k = 0; k < nn && cc_ok; k++) {
-                    if (gr.IF(k, k) != -1) continue;
-                    double total_cc = 0.0;
-                    for (int m = 0; m < nn; m++) {
-                        if (m == k || gr.IF(k, m) == 0) continue;
-                        GaugeInfo gm = (m < (int)nhc.curve_gauges.size()) ? nhc.curve_gauges[m] : GAUGE_NONE;
-                        if (gr.IF(m, m) == -1 && gm.dim == 0) continue;
-                        int intN = std::abs(gr.IF(k, m));
-                        GaugeInfo g = (m < (int)nhc.curve_gauges.size() && nhc.curve_gauges[m].dim > 0)
-                            ? nhc.curve_gauges[m] : gauge_from_si(gr.IF(m, m));
-                        if (g.dim > 0) total_cc += central_charge(g, intN);
-                    }
-                    if (total_cc > cc + 1e-9) cc_ok = false;
-                }
-                if (!cc_ok) continue;
-
-                // Extended IF + blowdown: sig check for complete base
-                std::set<int> h1_set;
-                if (spec->is_hat1) h1_set.insert(gr.shared_ext_idx);
-                Eigen::MatrixXi ext_IF = Eigen::MatrixXi::Zero(nn+1, nn+1);
-                ext_IF.block(0, 0, nn, nn) = gr.IF;
-                for (int k = 0; k < nn; k++) {
-                    int b0c = h1_set.count(k) ? -1 : (gr.IF(k,k) + 2);
-                    ext_IF(k, nn) = b0c; ext_IF(nn, k) = b0c;
-                }
-                ext_IF(nn, nn) = 9 - T_glued;
-
-                Eigen::MatrixXi bd = ext_IF;
-                while (true) {
-                    int sz = bd.rows(), m1 = -1;
-                    for (int k = 0; k < sz; k++)
-                        if (bd(k,k) == -1 && bd(k, sz-1) == 1) { m1 = k; break; }
-                    if (m1 < 0) break;
-                    bd = blowdown_curve(bd, m1);
-                }
-
-                auto bd_sig = compute_sig(bd);
-                if (bd_sig.sig_pos != 1) continue;
-
-                Phase3Result r;
-                r.spec_id = spec->id; r.spec_tag = spec->tag;
-                r.catA_id = A.entry.catalog_id; r.catA_type = A.entry.catalog_type;
-                r.catB_id = B.entry.catalog_id; r.catB_type = B.entry.catalog_type;
-                r.shared_ext_idx = gr.shared_ext_idx;
-                r.b_start = gr.b_start; r.b_end = gr.b_end;
-                r.ext_is_hat1 = spec->is_hat1;
-                r.final_IF = gr.IF; r.nhc = nhc; r.anomaly = anom; r.sig = sig;
-                r.T_min_target = sig.sig_neg;  // T of glued IF
-                r.T_A = A.entry.T; r.T_B = B.entry.T;
-                if (spec->is_hat1) r.hat1_indices.insert(gr.shared_ext_idx);
-                results.push_back(std::move(r));
-                spec_pass++; passed++;
+        {
+            bool in_nhc_cluster = false;
+            if (gr.shared_ext_idx < (int)nhc.curve_cluster.size() &&
+                nhc.curve_cluster[gr.shared_ext_idx] >= 0) in_nhc_cluster = true;
+            if (!in_nhc_cluster) {
+                if (spec->is_hat1)
+                    enhance_hat1_gauge(nhc, gr.IF, gr.shared_ext_idx, spec->target_si, cc);
+                else if (spec->ext_si == -2 && spec->target_si == -1)
+                    enhance_external_m2_gauge(nhc, gr.IF, gr.shared_ext_idx, spec->target_si, cc);
             }
         }
-        std::cout << "[" << tag << "] " << n << " entries, "
-                  << n*(n+1)/2 << " pairs -> " << spec_pass << " pass\n";
+        if (!nhc.passes) { rej_enhance++; return false; }
+
+        {
+            std::set<int> ext_set = {gr.shared_ext_idx};
+            if (compute_proper_c_ext(gr.IF, nhc, ext_set) > g_proper_c_ext_max + 1e-9)
+                { rej_cext++; return false; }
+        }
+
+        // Set LST-T base T for compute_anomaly (uses thread-local g_current_base_T).
+        g_current_base_T = T_lst;
+        AnomalyResult anom = compute_anomaly(gr.IF, nhc);
+        if (anom.H_neutral < 0) { rej_anom++; return false; }
+
+        bool cc_ok = true;
+        int nn = gr.IF.rows();
+        for (int k = 0; k < nn && cc_ok; k++) {
+            if (gr.IF(k, k) != -1) continue;
+            double total_cc = 0.0;
+            for (int m = 0; m < nn; m++) {
+                if (m == k || gr.IF(k, m) == 0) continue;
+                GaugeInfo gm = (m < (int)nhc.curve_gauges.size()) ? nhc.curve_gauges[m] : GAUGE_NONE;
+                if (gr.IF(m, m) == -1 && gm.dim == 0) continue;
+                int intN = std::abs(gr.IF(k, m));
+                GaugeInfo g = (m < (int)nhc.curve_gauges.size() && nhc.curve_gauges[m].dim > 0)
+                    ? nhc.curve_gauges[m] : gauge_from_si(gr.IF(m, m));
+                if (g.dim > 0) total_cc += central_charge(g, intN);
+            }
+            if (total_cc > cc + 1e-9) cc_ok = false;
+        }
+        if (!cc_ok) { rej_cc++; return false; }
+
+        std::set<int> h1_set;
+        if (spec->is_hat1) h1_set.insert(gr.shared_ext_idx);
+        Eigen::MatrixXi ext_IF = Eigen::MatrixXi::Zero(nn+1, nn+1);
+        ext_IF.block(0, 0, nn, nn) = gr.IF;
+        for (int k = 0; k < nn; k++) {
+            int b0c = h1_set.count(k) ? -1 : (gr.IF(k,k) + 2);
+            ext_IF(k, nn) = b0c; ext_IF(nn, k) = b0c;
+        }
+        // Filter b_0^2 uses sig-derived T (= sig.sig_neg of the partial IF) so
+        // ext_IF lands in the (1, T, 0) regime — this matches the bd_sig check.
+        ext_IF(nn, nn) = 9 - T_glued;
+
+        Eigen::MatrixXi bd = ext_IF;
+        while (true) {
+            int sz = bd.rows(), m1 = -1;
+            for (int k = 0; k < sz; k++)
+                if (bd(k,k) == -1 && bd(k, sz-1) == 1) { m1 = k; break; }
+            if (m1 < 0) break;
+            bd = blowdown_curve(bd, m1);
+        }
+
+        auto bd_sig = compute_sig_fast(bd);
+        if (bd_sig.sig_pos != 1) { rej_bdsig++; return false; }
+
+        Phase3Result r;
+        r.spec_id = spec->id; r.spec_tag = result_tag;
+        r.catA_id = A.entry.catalog_id; r.catA_type = A.entry.catalog_type;
+        r.catB_id = B.entry.catalog_id; r.catB_type = B.entry.catalog_type;
+        r.shared_ext_idx = gr.shared_ext_idx;
+        r.b_start = gr.b_start; r.b_end = gr.b_end;
+        r.ext_is_hat1 = spec->is_hat1;
+        r.final_IF = gr.IF; r.nhc = nhc; r.anomaly = anom; r.sig = sig;
+        r.T_min_target = sig.sig_neg;
+        r.T_A = A.entry.T; r.T_B = B.entry.T;
+        if (spec->is_hat1) r.hat1_indices.insert(gr.shared_ext_idx);
+        results.push_back(std::move(r));
+        passed++;
+        return true;
+    };
+
+    if (pair_tag_mode) {
+        auto itA = p1s.find(pair_tagA);
+        auto itB = p1s.find(pair_tagB);
+        if (itA == p1s.end() || itB == p1s.end()) {
+            std::cerr << "Missing entries for tag(s): "
+                      << (itA == p1s.end() ? pair_tagA : "") << " "
+                      << (itB == p1s.end() ? pair_tagB : "") << "\n";
+            return 1;
+        }
+        auto& entriesA = itA->second;
+        auto& entriesB = itB->second;
+        const ExternalSpec* specA = entriesA[0].spec;  // A drives enhancement
+        std::string combo_tag = pair_tagA + "_x_" + pair_tagB;
+        int spec_pass = 0;
+        for (auto& A : entriesA) {
+            for (auto& B : entriesB) {
+                if (process_pair(A, B, specA, combo_tag)) spec_pass++;
+            }
+        }
+        std::cout << "[" << combo_tag << "] " << entriesA.size() << " x "
+                  << entriesB.size() << " pairs -> " << spec_pass << " pass\n";
+    } else {
+        for (auto& [tag, entries] : p1s) {
+            const ExternalSpec* spec = entries[0].spec;
+            int spec_pass = 0;
+            int n = (int)entries.size();
+            for (int i = 0; i < n; i++) {
+                for (int j = i; j < n; j++) {
+                    auto& A = entries[i];
+                    auto& B = entries[j];
+                    if (cross_mode && A.source == B.source) continue;
+                    if (process_pair(A, B, spec, tag)) spec_pass++;
+                }
+            }
+            std::cout << "[" << tag << "] " << n << " entries, "
+                      << n*(n+1)/2 << " pairs -> " << spec_pass << " pass\n";
+        }
     }
     std::cout << "\nTried: " << tried << ", passed: " << passed << "\n";
+    std::cout << "Rejected: sig=" << rej_sig << " nhc=" << rej_nhc
+              << " enhance=" << rej_enhance << " cext=" << rej_cext
+              << " anomaly=" << rej_anom << " cc=" << rej_cc
+              << " bdsig=" << rej_bdsig << "\n";
 
     // Dedup
     std::set<std::string>seen;std::vector<Phase3Result>filtered;
@@ -496,7 +551,7 @@ int main(int argc,char*argv[]){
                 if (m1 < 0) break;
                 bd = blowdown_curve(bd, m1);
             }
-            auto bds = compute_sig(bd);
+            auto bds = compute_sig_fast(bd);
             int bdn = bd.rows();
             out << "BLOWDOWN " << bdn << "\n";
             for (int i = 0; i < bdn; i++) {
@@ -570,7 +625,7 @@ int main(int argc,char*argv[]){
             cur = blowdown_curve(cur, m1);
             bd_count++;
         }
-        auto sig_bd = compute_sig(cur);
+        auto sig_bd = compute_sig_fast(cur);
 
         tex << "\\hspace{1em}$T=" << r.anomaly.T
             << ",\\; b_0^2=" << 9 - r.anomaly.T

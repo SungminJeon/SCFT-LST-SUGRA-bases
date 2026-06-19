@@ -28,6 +28,8 @@ inline std::vector<SpecLabel> spec_labels() {
     a("e7p","$\\mathfrak{e}_7'$"); a("e7","$\\mathfrak{e}_7$");
     a("e8","$\\mathfrak{e}_8$");
     a("hat1m1","$\\hat{1}{\\to}(-1)$"); a("hat1m2","$\\hat{1}{\\to}(-2)$");
+    a("2","$(-2)$");                                   // no gauge: bare (-2) curve
+    a("2mix","$(-2)$");                                // same — bare (-2) with (-1) connections
     return v;
 }
 
@@ -280,22 +282,74 @@ BDResult blowdown(const Eigen::MatrixXi& IF, const std::set<int>& h1) {
 
 // ── T_crit ──
 struct TCrit { double val; int ival; bool exact; Eigen::MatrixXi bd_M; };
-TCrit compute_tcrit(const Eigen::MatrixXi& IF, const std::set<int>& h1) {
-    TCrit res;int n=IF.rows();
-    Eigen::MatrixXd M=Eigen::MatrixXd::Zero(n+1,n+1);M.block(0,0,n,n)=IF.cast<double>();
-    for(int i=0;i<n;i++){double b=h1.count(i)?-1.0:(IF(i,i)+2.0);M(i,n)=b;M(n,i)=b;}
-    M(n,n)=0;double B=M.determinant();M(n,n)=1;double A=M.determinant()-B;
-    if(std::abs(A)<1e-10){res.val=1e9;res.exact=false;res.ival=-1;return res;}
-    res.val=9.0-(-B/A);int tc=(int)std::round(res.val);res.exact=(std::abs(res.val-tc)<1e-6);
-    res.ival=res.exact?tc:(int)std::ceil(res.val-1e-9);
-    // Blowdown at T_crit
-    int b0sq=9-res.ival;
-    Eigen::MatrixXi ext=Eigen::MatrixXi::Zero(n+1,n+1);ext.block(0,0,n,n)=IF;
-    for(int i=0;i<n;i++){int b=h1.count(i)?-1:(IF(i,i)+2);ext(i,n)=b;ext(n,i)=b;}ext(n,n)=b0sq;
-    Eigen::MatrixXi cur=ext;std::set<int>ch=h1;
-    while(true){int nn=cur.rows(),m=-1;for(int i=0;i<nn-1;i++){if(ch.count(i))continue;if(cur(i,i)==-1){m=i;break;}}
-        if(m<0)break;cur=bd_curve(cur,m);std::set<int>nh;for(int h:ch)nh.insert(h>m?h-1:h);ch=nh;}
-    res.bd_M=cur;return res;
+
+// Helper: build blowdown matrix at given T (extends IF with b0² = 9-T, then
+// successively blows down any -1 curves not in the hat1 set).
+static inline Eigen::MatrixXi blowdown_at_T(const Eigen::MatrixXi& IF,
+                                             const std::set<int>& h1, int T) {
+    int n = IF.rows();
+    int b0sq = 9 - T;
+    Eigen::MatrixXi ext = Eigen::MatrixXi::Zero(n+1, n+1);
+    ext.block(0, 0, n, n) = IF;
+    for (int i = 0; i < n; i++) {
+        int b = h1.count(i) ? -1 : (IF(i,i) + 2);
+        ext(i, n) = b; ext(n, i) = b;
+    }
+    ext(n, n) = b0sq;
+    Eigen::MatrixXi cur = ext;
+    std::set<int> ch = h1;
+    while (true) {
+        int nn = cur.rows(), m = -1;
+        for (int i = 0; i < nn - 1; i++) {
+            if (ch.count(i)) continue;
+            if (cur(i, i) == -1) { m = i; break; }
+        }
+        if (m < 0) break;
+        cur = bd_curve(cur, m);
+        std::set<int> nh;
+        for (int h : ch) nh.insert(h > m ? h - 1 : h);
+        ch = nh;
+    }
+    return cur;
+}
+
+// compute_tcrit: try the closed-form det=0 crossing first. If the extended-IF
+// determinant is T-independent (A≈0), fall back to scanning T values in
+// [sig_neg, T_max] for sig_pos=1 (mirrors the reject_nonuni fallback). The
+// scan range T_max is anomaly-feasible by construction (max_t_add_from_fmulti
+// + T_sugra), so any T found is both signature- and anomaly-valid.
+TCrit compute_tcrit(const Eigen::MatrixXi& IF, const std::set<int>& h1,
+                    int sig_neg = -1, int T_max_anom = -1) {
+    TCrit res; int n = IF.rows();
+    Eigen::MatrixXd M = Eigen::MatrixXd::Zero(n+1, n+1);
+    M.block(0, 0, n, n) = IF.cast<double>();
+    for (int i = 0; i < n; i++) {
+        double b = h1.count(i) ? -1.0 : (IF(i,i) + 2.0);
+        M(i, n) = b; M(n, i) = b;
+    }
+    M(n, n) = 0; double B = M.determinant();
+    M(n, n) = 1; double A = M.determinant() - B;
+
+    if (std::abs(A) < 1e-10) {
+        // A=0: extended det is T-constant. Fallback: scan T for sig_pos=1.
+        if (sig_neg >= 0 && T_max_anom >= 0) {
+            for (int T = sig_neg; T <= T_max_anom; T++) {
+                if (check_extended_sig(IF, T, h1)) {
+                    res.ival = T; res.val = (double)T; res.exact = true;
+                    res.bd_M = blowdown_at_T(IF, h1, T);
+                    return res;
+                }
+            }
+        }
+        res.val = 1e9; res.exact = false; res.ival = -1; return res;
+    }
+
+    res.val = 9.0 - (-B / A);
+    int tc = (int)std::round(res.val);
+    res.exact = (std::abs(res.val - tc) < 1e-6);
+    res.ival = res.exact ? tc : (int)std::ceil(res.val - 1e-9);
+    res.bd_M = blowdown_at_T(IF, h1, res.ival);
+    return res;
 }
 
 // ── Main ──
@@ -382,6 +436,7 @@ int main(int argc,char*argv[]){
                         else if(part=="so16n2") result+="$\\mathfrak{so}_{16}{\\to}\\mathfrak{su}_8$";
                         else if(part=="hat1m1") result+="$\\hat{1}{\\to}(-1)$";
                         else if(part=="hat1m2") result+="$\\hat{1}{\\to}(-2)$";
+                        else if(part=="2" || part=="2mix") result+="$(-2)$";  // no gauge: bare (-2)
                         else if(part.find("nhc_")!=std::string::npos) {
                             if(part=="nhc_2_3") result+="NHC$(-2)(-3)$";
                             else if(part=="nhc_2_3_2") result+="NHC$(-2)(-3)(-2)$";
@@ -399,8 +454,9 @@ int main(int argc,char*argv[]){
             int Hn=273+e.V-e.H_charged-29*e.T;
             int Tm=std::min(e.T+max_t_add_from_fmulti(Hn),193);
 
-            // Compute total cc from externals
-            double total_ext_cc=0.0;
+            // Nominal c_ext: simple sum of central_charges using each external's
+            // nominal spec gauge (no NHC merging).
+            double c_nom=0.0;
             for(auto&ei:e.externals){
                 GaugeInfo g;
                 if(ei.is_hat1){
@@ -409,18 +465,48 @@ int main(int argc,char*argv[]){
                     g=gauge_from_si(ei.ext_si);
                     if(g.dim==0 && ei.ext_si==-2) g=GAUGE_SU2;
                 }
-                if(g.dim>0) total_ext_cc+=central_charge(g,ei.int_num);
+                if(g.dim>0) c_nom+=central_charge(g,ei.int_num);
+            }
+
+            // Proper c_ext (NHC-aware) and true c_ext (fiber-weighted, kernel).
+            // Match the pipeline: check_nhc → enhance externals (gauge boost for
+            // hat1 and m2 attaches) → compute_proper/true.
+            std::set<int> ext_set;
+            for(auto&ei:e.externals) ext_set.insert(ei.curve_idx);
+            NHCResult nhc = check_nhc(e.IF, 8.0);
+            double c_proper = -1.0, c_true = -1.0;
+            if (nhc.passes) {
+                // Enhance each external the way the pipeline does it.
+                for (auto& ei : e.externals) {
+                    if (ei.is_hat1) {
+                        enhance_hat1_gauge(nhc, e.IF, ei.curve_idx, ei.target_si, 8.0);
+                    } else if (ei.ext_si == -2 && ei.target_si == -1) {
+                        enhance_external_m2_gauge(nhc, e.IF, ei.curve_idx, ei.target_si, 8.0);
+                    }
+                    if (!nhc.passes) break;
+                }
+                if (nhc.passes) {
+                    c_proper = compute_proper_c_ext(e.IF, nhc, ext_set);
+                    c_true   = compute_true_c_ext_fiber(e.IF, nhc, ext_set);
+                }
             }
 
             tex<<"\\texttt{["<<e.entry_id<<"]} $"<<quiver(e.IF,e.externals)<<ext_annotation(e.externals,tag2label)<<"$";
             tex<<" \\quad $T="<<e.T<<",\\;T_{\\max}="<<Tm<<",\\;\\Delta="<<delta
                <<",\\;\\det="<<e.det<<",\\;(n_+,n_-,n_0)=("<<e.sig_pos<<","<<e.sig_neg<<","<<e.sig_zero
-               <<"),\\;c_\\mathrm{ext}="<<std::fixed<<std::setprecision(1)<<total_ext_cc<<"$\n\n";
+               <<"),\\;c_\\mathrm{ext}^{\\mathrm{nom}}="<<std::fixed<<std::setprecision(1)<<c_nom;
+            if (c_proper >= 0) tex<<",\\;c_\\mathrm{ext}^{\\mathrm{proper}}="<<std::fixed<<std::setprecision(2)<<c_proper;
+            else tex<<",\\;c_\\mathrm{ext}^{\\mathrm{proper}}=\\text{NHC fail}";
+            if (c_true >= 0) tex<<",\\;c_\\mathrm{ext}^{\\mathrm{true}}="<<std::fixed<<std::setprecision(2)<<c_true;
+            else tex<<",\\;c_\\mathrm{ext}^{\\mathrm{true}}=\\text{n/a}";
+            tex<<"$\n\n";
 
             std::set<int>h1;for(auto&ei:e.externals)if(ei.is_hat1)h1.insert(ei.curve_idx);
 
-            // Unified T_min/T_max + blowdown for both uni and non-uni
-            auto tc=compute_tcrit(e.IF,h1);
+            // Unified T_min/T_max + blowdown for both uni and non-uni.
+            // Pass sig_neg + T_max_anom so compute_tcrit can use the
+            // reject_nonuni-style scan fallback when A=0.
+            auto tc=compute_tcrit(e.IF,h1,e.sig_neg,Tm);
             if(tc.ival>=0){
                 tex<<"\\hspace{1em}$T_{\\min}=";
                 if(tc.exact)tex<<tc.ival;else tex<<std::fixed<<std::setprecision(2)<<tc.val<<"\\to "<<tc.ival;

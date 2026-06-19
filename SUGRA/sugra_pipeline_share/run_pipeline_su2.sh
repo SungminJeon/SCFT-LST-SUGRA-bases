@@ -41,14 +41,16 @@ date
 echo ""
 echo "=== Build ==="
 make 2>&1 | tail -5
+[ "${PIPESTATUS[0]}" -eq 0 ] || { echo "ERROR: build (make) failed — aborting."; exit 1; }
 
 # --- Step 1: Phase 1 (single-curve external attach) ---
 echo ""
 echo "=== Step 1: phase1 (T=${T_MIN}..${T_MAX}) ==="
-rm -rf cat_1ext_nosu2_${SUFFIX} cat_1ext_nosu2_${SUFFIX}_nonsugra
+rm -rf cat_1ext_su2_${SUFFIX} cat_1ext_su2_${SUFFIX}_nonsugra
 date
 time ./gen_sugra_phase1 unified.cat ${T_MAX} ${T_MIN} ${COMMON_FLAGS} --save-nonsugra \
-    --out cat_1ext_nosu2_${SUFFIX} 2>&1 | tail -5
+    --out cat_1ext_su2_${SUFFIX} 2>&1 | tail -5
+[ "${PIPESTATUS[0]}" -eq 0 ] || { echo "ERROR: phase1 failed — aborting."; exit 1; }
 
 # --- Step 2: NHC ext (NHC chain attach) ---
 echo ""
@@ -58,6 +60,7 @@ rm -rf cat_nhc_ext_${SUFFIX} cat_nhc_ext_${SUFFIX}_nonsugra
 rm -rf cat_nhc_ext cat_nhc_ext_nonsugra
 date
 time ./gen_sugra_nhc_ext unified.cat ${T_MAX} ${T_MIN} ${COMMON_FLAGS} --save-nonsugra 2>&1 | tail -5
+[ "${PIPESTATUS[0]}" -eq 0 ] || { echo "ERROR: nhc_ext failed — aborting."; exit 1; }
 if [ -d cat_nhc_ext ]; then mv cat_nhc_ext cat_nhc_ext_${SUFFIX}; fi
 if [ -d cat_nhc_ext_nonsugra ]; then mv cat_nhc_ext_nonsugra cat_nhc_ext_${SUFFIX}_nonsugra; fi
 
@@ -66,9 +69,9 @@ echo ""
 echo "=== Step 3: merge phase1 + nhc_ext ==="
 rm -rf cat_phase1_nhc_merged_${SUFFIX} cat_phase1_nhc_merged_${SUFFIX}_nonsugra
 mkdir -p cat_phase1_nhc_merged_${SUFFIX} cat_phase1_nhc_merged_${SUFFIX}_nonsugra
-for f in cat_1ext_nosu2_${SUFFIX}/*.cat; do cp "$f" "cat_phase1_nhc_merged_${SUFFIX}/$(basename "$f")"; done
-for f in cat_nhc_ext_${SUFFIX}/*.cat; do cp "$f" "cat_phase1_nhc_merged_${SUFFIX}/$(basename "$f")"; done
-for f in cat_1ext_nosu2_${SUFFIX}_nonsugra/*.cat; do [ -f "$f" ] && cp "$f" "cat_phase1_nhc_merged_${SUFFIX}_nonsugra/$(basename "$f")"; done
+for f in cat_1ext_su2_${SUFFIX}/*.cat; do [ -f "$f" ] && cp "$f" "cat_phase1_nhc_merged_${SUFFIX}/$(basename "$f")"; done
+for f in cat_nhc_ext_${SUFFIX}/*.cat; do [ -f "$f" ] && cp "$f" "cat_phase1_nhc_merged_${SUFFIX}/$(basename "$f")"; done
+for f in cat_1ext_su2_${SUFFIX}_nonsugra/*.cat; do [ -f "$f" ] && cp "$f" "cat_phase1_nhc_merged_${SUFFIX}_nonsugra/$(basename "$f")"; done
 for f in cat_nhc_ext_${SUFFIX}_nonsugra/*.cat; do [ -f "$f" ] && cp "$f" "cat_phase1_nhc_merged_${SUFFIX}_nonsugra/$(basename "$f")"; done
 SUGRA_COUNT=$(find cat_phase1_nhc_merged_${SUFFIX} -name '*.cat' -exec grep -c '^ENTRY' {} + | awk -F: '{s+=$2}END{print s}')
 NONSUGRA_COUNT=$(find cat_phase1_nhc_merged_${SUFFIX}_nonsugra -name '*.cat' -exec grep -c '^ENTRY' {} + | awk -F: '{s+=$2}END{print s}')
@@ -85,6 +88,7 @@ time ./run_chain.sh "./gen_sugra_nhc_ext_phase2" \
     9 \
     "${COMMON_FLAGS}" \
     cat_phase1_nhc_merged_${SUFFIX}_nonsugra 2>&1 | tail -40
+[ "${PIPESTATUS[0]}" -eq 0 ] || { echo "ERROR: phase2 chain (run_chain.sh) failed — aborting."; exit 1; }
 
 echo ""
 echo "=========================================="
@@ -97,10 +101,10 @@ OUTDIR="T_${T_MIN}_${T_MAX}_su2"
 echo ""
 echo "=== Step 5: collect catalogs into ${OUTDIR}/ ==="
 mkdir -p "${OUTDIR}"
-mv cat_1ext_nosu2_${SUFFIX} cat_1ext_nosu2_${SUFFIX}_nonsugra "${OUTDIR}/" 2>/dev/null
-mv cat_nhc_ext_${SUFFIX} cat_nhc_ext_${SUFFIX}_nonsugra "${OUTDIR}/" 2>/dev/null
-mv cat_phase1_nhc_merged_${SUFFIX} cat_phase1_nhc_merged_${SUFFIX}_nonsugra "${OUTDIR}/" 2>/dev/null
-mv cat_nhc_ext_nhc_ext_unified_${SUFFIX}_* "${OUTDIR}/" 2>/dev/null
+mv cat_1ext_su2_${SUFFIX} cat_1ext_su2_${SUFFIX}_nonsugra "${OUTDIR}/" 2>/dev/null || true
+mv cat_nhc_ext_${SUFFIX} cat_nhc_ext_${SUFFIX}_nonsugra "${OUTDIR}/" 2>/dev/null || true
+mv cat_phase1_nhc_merged_${SUFFIX} cat_phase1_nhc_merged_${SUFFIX}_nonsugra "${OUTDIR}/" 2>/dev/null || true
+mv cat_nhc_ext_nhc_ext_unified_${SUFFIX}_* "${OUTDIR}/" 2>/dev/null || true
 echo "  moved to ${OUTDIR}/  ($(ls "${OUTDIR}" | wc -l | xargs) directories)"
 
 # --- Summary ---

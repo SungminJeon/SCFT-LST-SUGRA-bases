@@ -125,6 +125,16 @@ struct Phase1Result {
     std::string catalog_type;
     int base_T;
 
+    // Spec metadata for this specific attachment (default = parent spec, but
+    // mix variants like so16n2mix/su3n2mix/su2n3mix/su8mix/so7/so7mix override
+    // these to record the *actual* attachment type, matching phase2's tagging).
+    // When unset (empty tag), writeout falls back to the parent ExternalSpec.
+    std::string tag;
+    int ext_si = 0;
+    int target_si = 0;
+    int int_num = 0;
+    bool is_hat1 = false;
+
     // Attachment
     int target_idx;            // curve in base_IF where external attaches
     int ext_curve_idx;         // index of external in final_IF (= base_IF.rows())
@@ -232,6 +242,82 @@ inline std::string dedup_key_v2(const Eigen::MatrixXi& IF, const std::string& ex
     std::vector<double> ev_vec(n);
     for (int i = 0; i < n; i++) ev_vec[i] = es.eigenvalues()(i);
     return dedup_key_v2_cached(IF, ev_vec, extra);
+}
+
+// Binary-fingerprint variants of dedup_key_v2 / dedup_key_v2_cached. Same
+// canonical content as the string versions (sorted eigenvalues quantized to
+// int64 at 1e-8, sorted vertex descriptors, sorted edge multiset, extra
+// discriminator), packed as bytes and run through two independent 64-bit
+// hashes to produce a 128-bit DedupKey128.
+inline DedupKey128 dedup_key_v2_cached_binary(const Eigen::MatrixXi& IF,
+                                               const std::vector<double>& eigenvalues,
+                                               const std::string& extra = "") {
+    int n = IF.rows();
+    std::vector<uint8_t> buf;
+    buf.reserve(64 + n * 32 + extra.size());
+
+    for (int i = 0; i < n; i++) {
+        double v = eigenvalues[i];
+        if (std::abs(v) < 1e-10) v = 0.0;
+        int64_t qv = (int64_t)std::llround(v * 1e8);
+        buf_append_i64(buf, qv);
+    }
+    buf.push_back(0xFF);
+
+    struct VDesc {
+        int si, deg;
+        std::vector<int> nbr_si;
+        bool operator<(const VDesc& o) const {
+            return std::tie(si, deg, nbr_si) < std::tie(o.si, o.deg, o.nbr_si);
+        }
+    };
+    std::vector<VDesc> vds(n);
+    for (int i = 0; i < n; i++) {
+        vds[i].si = IF(i, i);
+        vds[i].deg = 0;
+        for (int j = 0; j < n; j++)
+            if (j != i && IF(i, j) != 0) {
+                vds[i].deg++;
+                vds[i].nbr_si.push_back(IF(j, j));
+            }
+        std::sort(vds[i].nbr_si.begin(), vds[i].nbr_si.end());
+    }
+    std::sort(vds.begin(), vds.end());
+    for (auto& vd : vds) {
+        buf_append_i32(buf, vd.si);
+        buf_append_i32(buf, vd.deg);
+        buf_append_i32(buf, (int32_t)vd.nbr_si.size());
+        for (int s : vd.nbr_si) buf_append_i32(buf, s);
+    }
+    buf.push_back(0xFE);
+
+    std::vector<std::tuple<int, int, int>> edges;
+    for (int i = 0; i < n; i++)
+        for (int j = i + 1; j < n; j++)
+            if (IF(i, j) != 0) {
+                int a = IF(i, i), b = IF(j, j);
+                if (a > b) std::swap(a, b);
+                edges.push_back({a, b, IF(i, j)});
+            }
+    std::sort(edges.begin(), edges.end());
+    for (auto& [a, b, w] : edges) {
+        buf_append_i32(buf, a);
+        buf_append_i32(buf, b);
+        buf_append_i32(buf, w);
+    }
+    buf.push_back(0xFD);
+
+    buf_append_bytes(buf, extra.data(), extra.size());
+    return hash128(buf);
+}
+
+inline DedupKey128 dedup_key_v2_binary(const Eigen::MatrixXi& IF,
+                                        const std::string& extra = "") {
+    int n = IF.rows();
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es(IF.cast<double>());
+    std::vector<double> ev_vec(n);
+    for (int i = 0; i < n; i++) ev_vec[i] = es.eigenvalues()(i);
+    return dedup_key_v2_cached_binary(IF, ev_vec, extra);
 }
 
 // ============================================================================
@@ -347,7 +433,7 @@ inline Phase1SpecResult generate_single_spec(
     const ExternalSpec& spec,
     const std::vector<CatalogEntry>& catalog,
     const SUGRAConfig& config,
-    std::set<std::string>* early_dedup = nullptr,
+    std::unordered_set<DedupKey128, DedupKey128Hash>* early_dedup = nullptr,
     const void* skip_multi_target = nullptr,
     const std::vector<CachedIF>* cached_ifs = nullptr)
 {
@@ -381,16 +467,29 @@ inline Phase1SpecResult generate_single_spec(
         extra += "|cid:" + std::to_string(r.catalog_id);
         return extra;
     };
+    // Helper: fill spec metadata from outer 'spec' if not already set
+    // (mix variants like try_mixed/so7/so7mix pre-set r.tag etc. to override).
+    auto fill_default_spec_meta = [&](Phase1Result& r) {
+        if (r.tag.empty()) {
+            r.tag = spec.tag;
+            r.ext_si = spec.ext_si;
+            r.target_si = spec.target_si;
+            r.int_num = spec.int_num;
+            r.is_hat1 = spec.is_hat1;
+        }
+    };
+
     // Helper: push result with optional early dedup (thread-safe)
     std::mutex results_mutex;
     auto push_result = [&](Phase1Result& r, const Eigen::MatrixXi& final_IF, const NHCResult& nhc_ref) {
+        fill_default_spec_meta(r);
         r.remaining_targets = compute_remaining_targets(final_IF, nhc_ref, config.cc_budget);
         std::lock_guard<std::mutex> lock(results_mutex);
         if (early_dedup) {
             std::string extra = make_extra(r);
-            std::string key = r.eigenvalues.empty()
-                ? dedup_key_v2(final_IF, extra)
-                : dedup_key_v2_cached(final_IF, r.eigenvalues, extra);
+            DedupKey128 key = r.eigenvalues.empty()
+                ? dedup_key_v2_binary(final_IF, extra)
+                : dedup_key_v2_cached_binary(final_IF, r.eigenvalues, extra);
             if (!early_dedup->insert(key).second) return; // duplicate, skip
         }
         results.push_back(std::move(r));
@@ -400,6 +499,7 @@ inline Phase1SpecResult generate_single_spec(
         // Skip if recovery is impossible
         double cur_cc = spec.cc;  // Phase 1: single external
         if (recovery_impossible(r.anomaly.H_neutral, g_max_ext_cc - cur_cc)) return;
+        fill_default_spec_meta(r);
         r.remaining_targets = compute_remaining_targets(final_IF, nhc_ref, config.cc_budget);
         std::lock_guard<std::mutex> lock(results_mutex);
         nonsugra_results.push_back(std::move(r));
@@ -407,7 +507,12 @@ inline Phase1SpecResult generate_single_spec(
 
     // --- Catalog entries (OpenMP parallelized) ---
 
-    #pragma omp parallel for schedule(dynamic, 1)
+    // Phase1 runs serially — the early-dedup mechanism uses a mutex-protected
+    // `seen_by_tag` set whose mutex acquisition order is non-deterministic
+    // across OMP runs (different cospectral representative wins each run),
+    // and that picked representative cascades into phase2 chain via the
+    // matrix arrangement. Phase1 is fast (<1s for T=0..10) so leaving it
+    // serial costs negligible wall time and restores full determinism.
     for (size_t ei = 0; ei < catalog.size(); ei++) {
         const auto& entry = catalog[ei];
         if (entry.is_nn() && !config.include_nn) continue;
@@ -422,7 +527,7 @@ inline Phase1SpecResult generate_single_spec(
         } else {
             base_IF = reconstruct_IF(entry);
             if (base_IF.rows() == 0) continue;
-            base_sig = compute_sig(base_IF);
+            base_sig = compute_sig_fast(base_IF);
         }
         if (base_IF.rows() == 0) continue;
         if (base_sig.sig_neg + 1 > config.T_max) continue;  // +1 for the external
@@ -493,7 +598,14 @@ inline Phase1SpecResult generate_single_spec(
             }
         }
 
-        if (target_curves.empty() && !config.largeint_mixed) continue;
+        // Inline mix blocks below (su2n3mix, su8mix, so16n2mix, su3n2mix, so7,
+        // so7mix) live AFTER the for-tidx loop but inside this for-spec loop.
+        // They use their own (-1)/(-2)/(-3)/(-4) curve sets and don't depend on
+        // target_curves — so don't skip them when target_curves is empty.
+        // The blocks only fire for ext_si in {-2, -3, -4} with target_si=-1.
+        bool maybe_mix_inline = (spec.target_si == -1 && !spec.is_hat1 && !skip_multi_target
+                                 && (spec.ext_si == -2 || spec.ext_si == -3 || spec.ext_si == -4));
+        if (target_curves.empty() && !config.largeint_mixed && !maybe_mix_inline) continue;
 
         for (int tidx : target_curves) {
             // Attach
@@ -510,9 +622,9 @@ inline Phase1SpecResult generate_single_spec(
                 if (new_sig.sig_pos != 1) continue;
             }
 
-            // 3. det check
-            if (spec.is_hat1 && std::abs(new_sig.det) == 1) continue;
-            if (config.check_det_perfect_square && !is_perfect_square(std::abs(new_sig.det))) continue;
+            // 3. det check — hat1 (su8/su16) is exempt from the |det|=n² filter,
+            // matching phase2's !has_hat1 carve-out.
+            if (config.check_det_perfect_square && !spec.is_hat1 && !is_perfect_square(std::abs(new_sig.det))) continue;
 
             // 4. NHC check
             NHCResult nhc = {true, "", {}, {}, {}};
@@ -596,9 +708,8 @@ inline Phase1SpecResult generate_single_spec(
                     auto new_sig = compute_sig(new_IF, ev);
                     if (new_sig.sig_neg > config.T_max) return;
 
-                    // hat1→(-1): unimodular cannot reach Hirzebruch
-                    if (std::abs(new_sig.det) == 1) return;
-                    if (config.check_det_perfect_square && !is_perfect_square(std::abs(new_sig.det))) return;
+                    // hat1 multi-target: exempt from |det|=n² filter (su8 enhancement).
+                    if (config.check_det_perfect_square && !spec.is_hat1 && !is_perfect_square(std::abs(new_sig.det))) return;
 
                     NHCResult nhc = {true, "", {}, {}, {}};
                     if (config.check_nhc) {
@@ -664,8 +775,14 @@ inline Phase1SpecResult generate_single_spec(
             } else if (spec.ext_si == -3) {
                 max_k = config.mixed_int_max;
                 max_tgt = std::min(nm1, 193);
+            } else if (spec.ext_si == -4) {
+                // so8: k=2 cc = 7.0 ≤ 8 (target -1 budget), so k=2 multi is feasible.
+                // Matches phase2 attach_v6_multi (max_level_for_cc(SO8, 8.0) = 2).
+                max_k = 2;
+                max_tgt = std::min(nm1, 193);
             } else {
-                // so8 and higher: k=1 only (k=2 would be so16 etc, handled separately)
+                // f4 (k=2 cc=9.45), e6 (11.14), e7 (13.3), e8 (15.5): k=2 cc > 8,
+                // infeasible on a -1 target.
                 max_k = 1;
                 max_tgt = std::min(nm1, 193);
             }
@@ -899,6 +1016,13 @@ inline Phase1SpecResult generate_single_spec(
                 Phase1Result r;
                 r.spec_id = spec.id; r.catalog_id = entry.id; r.catalog_type = entry.type;
                 r.base_T = entry.T; r.target_idx = special_curve; r.ext_curve_idx = ext_idx;
+                // mix variant: override spec metadata so writeout records the
+                // actual attachment (matching phase2's mix tagging).
+                r.tag = mtag;
+                r.ext_si = ext_si;
+                r.target_si = base_IF(special_curve, special_curve); // primary tgt curve si
+                r.int_num = special_int;
+                r.is_hat1 = false;
                 std::vector<int> all_tgts = {special_curve};
                 all_tgts.insert(all_tgts.end(), m1_targets.begin(), m1_targets.end());
                 r.hat1_multi_targets = all_tgts;
@@ -908,6 +1032,34 @@ inline Phase1SpecResult generate_single_spec(
                 else push_nonsugra(r, new_IF, nhc);
             });
         };
+
+        // su2n3mix: (-2) → (-3) int=1 + (-1)s   [phase2 parity]
+        if (spec.ext_si == -2 && spec.target_si == -1 && !spec.is_hat1 && !skip_multi_target
+            && spec.int_num == 1) {
+            std::vector<int> m1c, m3c;
+            for (int i = 0; i < n_base; i++) {
+                if (base_IF(i,i) == -1) {
+                    double used = used_cc_on_minus1_nhc(base_IF, i);
+                    if (used + central_charge(GAUGE_SU2, 1) <= config.cc_budget + 1e-9)
+                        m1c.push_back(i);
+                } else if (base_IF(i,i) == -3) m3c.push_back(i);
+            }
+            for (int m3 : m3c) try_mixed(-2, m3, 1, m1c, "su2n3mix");
+        }
+
+        // su8mix: (-2) → (-4) int=2 + (-1)s   [phase2 parity]
+        if (spec.ext_si == -2 && spec.target_si == -1 && !spec.is_hat1 && !skip_multi_target
+            && spec.int_num == 1) {
+            std::vector<int> m1c, m4c;
+            for (int i = 0; i < n_base; i++) {
+                if (base_IF(i,i) == -1) {
+                    double used = used_cc_on_minus1_nhc(base_IF, i);
+                    if (used + central_charge(GAUGE_SU8, 2) <= config.cc_budget + 1e-9)
+                        m1c.push_back(i);
+                } else if (base_IF(i,i) == -4) m4c.push_back(i);
+            }
+            for (int m4 : m4c) try_mixed(-2, m4, 2, m1c, "su8mix");
+        }
 
         // so16n2mix: (-4) → (-2) int=2 + (-1)s
         if (spec.ext_si == -4 && spec.target_si == -1 && !spec.is_hat1 && !skip_multi_target) {
@@ -966,11 +1118,120 @@ inline Phase1SpecResult generate_single_spec(
                         Phase1Result r;
                         r.spec_id = spec.id; r.catalog_id = entry.id; r.catalog_type = entry.type;
                         r.base_T = entry.T; r.target_idx = m2c[a]; r.ext_curve_idx = ext_idx;
+                        // mix override for so7 (-3 ext connecting to two -2 curves)
+                        r.tag = "so7";
+                        r.ext_si = -3;
+                        r.target_si = -2;
+                        r.int_num = 1;
+                        r.is_hat1 = false;
                         r.hat1_multi_targets = {m2c[a], m2c[b]};
                         r.base_IF = base_IF; r.final_IF = new_IF;
                         r.nhc = nhc; r.anomaly = anom; r.sig = new_sig; r.eigenvalues = std::move(ev);
                         if (is_sugra) push_result(r, new_IF, nhc);
                         else push_nonsugra(r, new_IF, nhc);
+                    }
+                }
+            }
+        }
+
+        // 2 / 2mix: new (-2, gauge NONE) attaches to a LST-native (-2) that is
+        // part of an isolated nhc_2_3 cluster ((-3) partner has no other
+        // non-(-1) neighbors). Forms nhc_2_2_3 after attach. Gated on the
+        // first su3-style spec iteration (same as so7) to emit once per LST.
+        if (spec.ext_si == -3 && spec.target_si == -1 && !spec.is_hat1 && !skip_multi_target) {
+            // Identify valid target (-2)s in base_IF
+            std::vector<int> targets_2;
+            for (int i = 0; i < n_base; i++) {
+                if (base_IF(i, i) != -2) continue;
+                int j_partner = -1;
+                int i_non_m1_count = 0;
+                for (int j = 0; j < n_base; j++) {
+                    if (j == i || base_IF(i, j) == 0) continue;
+                    if (base_IF(j, j) == -1) continue;
+                    i_non_m1_count++;
+                    j_partner = j;
+                }
+                if (i_non_m1_count != 1) continue;
+                if (base_IF(j_partner, j_partner) != -3) continue;
+                int j_non_m1_count = 0;
+                for (int k = 0; k < n_base; k++) {
+                    if (k == j_partner || base_IF(j_partner, k) == 0) continue;
+                    if (base_IF(k, k) == -1) continue;
+                    j_non_m1_count++;
+                }
+                if (j_non_m1_count != 1) continue;
+                targets_2.push_back(i);
+            }
+
+            if (!targets_2.empty()) {
+                std::vector<int> m1c;
+                for (int i = 0; i < n_base; i++)
+                    if (base_IF(i, i) == -1) m1c.push_back(i);
+
+                auto run_2_attach = [&](int target_2,
+                                         const std::vector<int>& m1_targets,
+                                         const std::vector<int>& int_nums,
+                                         const std::string& tag) {
+                    Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n_base + 1, n_base + 1);
+                    new_IF.block(0, 0, n_base, n_base) = base_IF;
+                    new_IF(n_base, n_base) = -2;
+                    new_IF(n_base, target_2) = 1;
+                    new_IF(target_2, n_base) = 1;
+                    for (int i = 0; i < (int)m1_targets.size(); i++) {
+                        new_IF(n_base, m1_targets[i]) = int_nums[i];
+                        new_IF(m1_targets[i], n_base) = int_nums[i];
+                    }
+                    int ext_idx = n_base;
+
+                    if (sig_pos_exceeds_one_fast(new_IF, config.T_max)) return;
+                    NHCResult nhc = {true, "", {}, {}, {}};
+                    if (config.check_nhc) {
+                        nhc = check_nhc(new_IF, config.cc_budget);
+                        if (!nhc.passes) return;
+                    }
+
+                    std::vector<double> ev;
+                    auto new_sig = compute_sig(new_IF, ev);
+                    if (new_sig.sig_pos != 1) return;
+
+                    AnomalyResult anom = compute_anomaly(nhc, new_sig);
+                    bool is_sugra = true;
+                    if (config.check_anomaly && anom.H_neutral < 0) is_sugra = false;
+                    if (is_sugra) {
+                        std::set<int> h1;
+                        if (reject_nonuni(new_IF, new_sig, anom, h1)) is_sugra = false;
+                    }
+
+                    Phase1Result r;
+                    r.spec_id = spec.id; r.catalog_id = entry.id; r.catalog_type = entry.type;
+                    r.base_T = entry.T; r.target_idx = target_2; r.ext_curve_idx = ext_idx;
+                    r.tag = tag;
+                    r.ext_si = -2;
+                    r.target_si = -2;
+                    r.int_num = 1;
+                    r.is_hat1 = false;
+                    r.hat1_multi_targets = {target_2};
+                    r.hat1_multi_targets.insert(r.hat1_multi_targets.end(), m1_targets.begin(), m1_targets.end());
+                    r.base_IF = base_IF; r.final_IF = new_IF;
+                    r.nhc = nhc; r.anomaly = anom; r.sig = new_sig; r.eigenvalues = std::move(ev);
+                    if (is_sugra) push_result(r, new_IF, nhc);
+                    else push_nonsugra(r, new_IF, nhc);
+                };
+
+                // Pure "2": no (-1) connection
+                for (int t2 : targets_2) {
+                    run_2_attach(t2, {}, {}, "2");
+                }
+
+                // "2mix": 1 or 2 (-1) targets with int_num in 1..3
+                if (!m1c.empty()) {
+                    int max_m1 = std::min((int)m1c.size(), 2);
+                    for (int t2 : targets_2) {
+                        enumerate_subsets_v2(m1c, 1, max_m1, [&](const std::vector<int>& m1_targets) {
+                            enumerate_int_nums((int)m1_targets.size(), 3, [&](const std::vector<int>& int_nums) {
+                                run_2_attach(t2, m1_targets, int_nums, "2mix");
+                            });
+                        });
                     }
                 }
             }
@@ -1015,6 +1276,12 @@ inline Phase1SpecResult generate_single_spec(
                             Phase1Result r;
                             r.spec_id = spec.id; r.catalog_id = entry.id; r.catalog_type = entry.type;
                             r.base_T = entry.T; r.target_idx = m2c[a]; r.ext_curve_idx = ext_idx;
+                            // mix override for so7mix (-3 ext to two -2 + -1 curves)
+                            r.tag = "so7mix";
+                            r.ext_si = -3;
+                            r.target_si = -2;
+                            r.int_num = 1;
+                            r.is_hat1 = false;
                             r.hat1_multi_targets = {m2c[a], m2c[b]};
                             r.hat1_multi_targets.insert(r.hat1_multi_targets.end(), m1_targets.begin(), m1_targets.end());
                             r.base_IF = base_IF; r.final_IF = new_IF;
@@ -1033,7 +1300,7 @@ inline Phase1SpecResult generate_single_spec(
     if (config.include_dummy) {
         auto try_dummy = [&](const Eigen::MatrixXi& base_IF, int id, const std::string& type) {
             int n_base = base_IF.rows();
-            auto base_sig = compute_sig(base_IF);
+            auto base_sig = compute_sig_fast(base_IF);
             if (base_sig.sig_neg + 1 > config.T_max) return;
             g_current_base_T = n_base;  // for --use-lst-T mode: LST curve count
 
@@ -1066,9 +1333,7 @@ inline Phase1SpecResult generate_single_spec(
                     if (new_sig.sig_pos != 1 || new_sig.sig_neg > config.T_max) continue;
                 }
 
-                // hat1: unimodular cannot reach Hirzebruch
-                if (spec.is_hat1 && std::abs(new_sig.det) == 1) continue;
-                if (config.check_det_perfect_square && !is_perfect_square(std::abs(new_sig.det))) continue;
+                if (config.check_det_perfect_square && !spec.is_hat1 && !is_perfect_square(std::abs(new_sig.det))) continue;
 
                 NHCResult nhc = {true, "", {}, {}, {}};
                 if (config.check_nhc) {
@@ -1125,8 +1390,7 @@ inline Phase1SpecResult generate_single_spec(
                         std::vector<double> ev;
                         auto new_sig = compute_sig(new_IF, ev);
                         if (new_sig.sig_neg > config.T_max) return;
-                        if (std::abs(new_sig.det) == 1) return; // unimodular hat1→(-1) rejected
-                        if (config.check_det_perfect_square && !is_perfect_square(std::abs(new_sig.det))) return;
+                        if (config.check_det_perfect_square && !spec.is_hat1 && !is_perfect_square(std::abs(new_sig.det))) return;
                         NHCResult nhc = {true, "", {}, {}, {}};
                         if (config.check_nhc) { nhc = check_nhc(new_IF, config.cc_budget); if (!nhc.passes) return; }
                         enhance_hat1_gauge(nhc, new_IF, ext_idx, -1, config.cc_budget);
@@ -1213,6 +1477,104 @@ inline Phase1SpecResult generate_single_spec(
                     });
                 }
             }
+
+            // so7 on dummies: (-3) → (-2)+(-2) (no (-1) connection).
+            // Mirrors the main-loop so7 inline block so DM:A/D LSTs also get
+            // so7 entries — required for canonical Path A reachability.
+            if (spec.ext_si == -3 && spec.target_si == -1 && !spec.is_hat1 && !skip_multi_target) {
+                std::vector<int> m2c;
+                for (int i = 0; i < n_base; i++)
+                    if (base_IF(i, i) == -2) m2c.push_back(i);
+                if ((int)m2c.size() >= 2) {
+                    for (int a = 0; a < (int)m2c.size(); a++) {
+                        for (int b = a + 1; b < (int)m2c.size(); b++) {
+                            Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n_base + 1, n_base + 1);
+                            new_IF.block(0, 0, n_base, n_base) = base_IF;
+                            new_IF(n_base, n_base) = -3;
+                            new_IF(n_base, m2c[a]) = 1; new_IF(m2c[a], n_base) = 1;
+                            new_IF(n_base, m2c[b]) = 1; new_IF(m2c[b], n_base) = 1;
+                            int ext_idx = n_base;
+
+                            if (sig_pos_exceeds_one_fast(new_IF, config.T_max)) continue;
+                            NHCResult nhc = {true, "", {}, {}, {}};
+                            if (config.check_nhc) { nhc = check_nhc(new_IF, config.cc_budget); if (!nhc.passes) continue; }
+
+                            std::vector<double> ev;
+                            auto new_sig = compute_sig(new_IF, ev);
+                            if (new_sig.sig_pos != 1) continue;
+
+                            AnomalyResult anom = compute_anomaly(nhc, new_sig);
+                            bool _is_sugra = true;
+                            if (config.check_anomaly && anom.H_neutral < 0) _is_sugra = false;
+                            if (_is_sugra) { std::set<int> h1; if (reject_nonuni(new_IF, new_sig, anom, h1)) _is_sugra = false; }
+
+                            Phase1Result r;
+                            r.spec_id = spec.id; r.catalog_id = id; r.catalog_type = type;
+                            r.base_T = base_sig.sig_neg; r.target_idx = m2c[a]; r.ext_curve_idx = ext_idx;
+                            r.tag = "so7";
+                            r.ext_si = -3; r.target_si = -2; r.int_num = 1; r.is_hat1 = false;
+                            r.hat1_multi_targets = {m2c[a], m2c[b]};
+                            r.base_IF = base_IF; r.final_IF = new_IF;
+                            r.nhc = nhc; r.anomaly = anom; r.sig = new_sig; r.eigenvalues = std::move(ev);
+                            if (_is_sugra) push_result(r, new_IF, nhc);
+                            else push_nonsugra(r, new_IF, nhc);
+                        }
+                    }
+                }
+            }
+
+            // so7mix on dummies: (-3) → (-2)+(-2) + (-1)s. Mirrors main-loop block.
+            if (spec.ext_si == -3 && spec.target_si == -1 && !spec.is_hat1 && !skip_multi_target) {
+                std::vector<int> m1c, m2c;
+                for (int i = 0; i < n_base; i++) {
+                    if (base_IF(i, i) == -1) {
+                        double used = used_cc_on_minus1_nhc(base_IF, i);
+                        if (used + central_charge(GAUGE_SO7, 1) <= config.cc_budget + 1e-9)
+                            m1c.push_back(i);
+                    } else if (base_IF(i, i) == -2) m2c.push_back(i);
+                }
+                if ((int)m2c.size() >= 2 && !m1c.empty()) {
+                    for (int a = 0; a < (int)m2c.size(); a++) {
+                        for (int b = a + 1; b < (int)m2c.size(); b++) {
+                            int max_m1 = std::min((int)m1c.size(), 4);
+                            enumerate_subsets_v2(m1c, 1, max_m1, [&](const std::vector<int>& m1_targets) {
+                                Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n_base + 1, n_base + 1);
+                                new_IF.block(0, 0, n_base, n_base) = base_IF;
+                                new_IF(n_base, n_base) = -3;
+                                new_IF(n_base, m2c[a]) = 1; new_IF(m2c[a], n_base) = 1;
+                                new_IF(n_base, m2c[b]) = 1; new_IF(m2c[b], n_base) = 1;
+                                for (int t : m1_targets) { new_IF(n_base, t) = 1; new_IF(t, n_base) = 1; }
+                                int ext_idx = n_base;
+
+                                if (sig_pos_exceeds_one_fast(new_IF, config.T_max)) return;
+                                NHCResult nhc = {true, "", {}, {}, {}};
+                                if (config.check_nhc) { nhc = check_nhc(new_IF, config.cc_budget); if (!nhc.passes) return; }
+
+                                std::vector<double> ev;
+                                auto new_sig = compute_sig(new_IF, ev);
+                                if (new_sig.sig_pos != 1) return;
+
+                                AnomalyResult anom = compute_anomaly(nhc, new_sig);
+                                bool _is_sugra = true;
+                                if (config.check_anomaly && anom.H_neutral < 0) _is_sugra = false;
+                                if (_is_sugra) { std::set<int> h1; if (reject_nonuni(new_IF, new_sig, anom, h1)) _is_sugra = false; }
+
+                                Phase1Result r;
+                                r.spec_id = spec.id; r.catalog_id = id; r.catalog_type = type;
+                                r.base_T = base_sig.sig_neg; r.target_idx = m2c[a]; r.ext_curve_idx = ext_idx;
+                                r.tag = "so7mix";
+                                r.ext_si = -3; r.target_si = -2; r.int_num = 1; r.is_hat1 = false;
+                                r.hat1_multi_targets = {m2c[a], m2c[b]};
+                                r.hat1_multi_targets.insert(r.hat1_multi_targets.end(), m1_targets.begin(), m1_targets.end());
+                                r.base_IF = base_IF; r.final_IF = new_IF;
+                                r.nhc = nhc; r.anomaly = anom; r.sig = new_sig; r.eigenvalues = std::move(ev);
+                                if (_is_sugra) push_result(r, new_IF, nhc);
+                                else push_nonsugra(r, new_IF, nhc);
+                            });
+                        }
+                    }
+                }
+            }
         };
 
         int a_min = std::max(2, config.catalog_T_min + 1);
@@ -1269,9 +1631,16 @@ inline void write_phase1_cat(const std::string& filename,
         int n = r.final_IF.rows();
 
         out << "ENTRY " << ri << "\n";
-        out << "SPEC " << r.spec_id << " " << spec.tag
-            << " " << spec.ext_si << " " << spec.target_si
-            << " " << spec.int_num << " " << (spec.is_hat1 ? 1 : 0) << "\n";
+        // Use per-result metadata (r.tag/r.ext_si/...) — mix variants override
+        // the parent spec; if not set (legacy), fall back to outer 'spec'.
+        const std::string& wtag = r.tag.empty() ? spec.tag : r.tag;
+        int wext_si    = r.tag.empty() ? spec.ext_si    : r.ext_si;
+        int wtarget_si = r.tag.empty() ? spec.target_si : r.target_si;
+        int wint_num   = r.tag.empty() ? spec.int_num   : r.int_num;
+        bool what1     = r.tag.empty() ? spec.is_hat1   : r.is_hat1;
+        out << "SPEC " << r.spec_id << " " << wtag
+            << " " << wext_si << " " << wtarget_si
+            << " " << wint_num << " " << (what1 ? 1 : 0) << "\n";
         out << "BASE " << r.catalog_id << " " << r.catalog_type
             << " " << r.base_T << " " << r.base_IF.rows() << "\n";
 
@@ -1357,7 +1726,7 @@ int main(int argc, char* argv[]) {
         if (std::string(argv[i]) == "--mix-k" && i + 1 < argc) {
             largeint_kmax = std::atoi(argv[i + 1]);  // reuse for mixed_int_max override
         }
-        if (std::string(argv[i]) == "--use-lst-T") g_use_lst_T = true;
+        if (std::string(argv[i]) == "--use-lst-T") { /* now canonical, no-op */ }
         if (std::string(argv[i]) == "--no-su2") no_su2 = true;
         if (std::string(argv[i]) == "--save-nonsugra") {}  // handled below in config
     }
@@ -1436,7 +1805,7 @@ int main(int argc, char* argv[]) {
         if (entry.T < config.catalog_T_min || entry.T > config.catalog_T_max) continue;
         cached_ifs[i].IF = reconstruct_IF(entry);
         if (cached_ifs[i].IF.rows() == 0) continue;
-        cached_ifs[i].sig = compute_sig(cached_ifs[i].IF);
+        cached_ifs[i].sig = compute_sig_fast(cached_ifs[i].IF);
         cached_ifs[i].valid = true;
         n_cached++;
     }
@@ -1472,7 +1841,7 @@ int main(int argc, char* argv[]) {
     std::map<std::string, std::vector<Phase1Result>> results_by_tag;
     std::map<std::string, std::vector<Phase1Result>> nonsugra_by_tag;
     std::map<std::string, const ExternalSpec*> tag_to_spec;  // representative spec per tag
-    std::map<std::string, std::set<std::string>> seen_by_tag;  // shared dedup per tag
+    std::map<std::string, std::unordered_set<DedupKey128, DedupKey128Hash>> seen_by_tag;  // shared dedup per tag
 
     int total_bases = 0;
 
@@ -1492,13 +1861,21 @@ int main(int argc, char* argv[]) {
                                          &cached_ifs);
         auto& raw = spec_result.sugra;
 
-        std::cout << " → " << raw.size() << " raw, total "
-                  << (results_by_tag[spec.tag].size() + raw.size()) << "\n";
+        {
+            // Avoid operator[] which would insert empty groups for 0-result specs
+            auto it_rbt = results_by_tag.find(spec.tag);
+            size_t prev = (it_rbt != results_by_tag.end()) ? it_rbt->second.size() : 0;
+            std::cout << " → " << raw.size() << " raw, total " << (prev + raw.size()) << "\n";
+        }
 
-        // Accumulate non-SUGRA results
+        // Accumulate non-SUGRA results (bucket by r.tag — mix variants keep distinct tag)
         if (config.save_nonsugra) {
-            auto& ns_group = nonsugra_by_tag[spec.tag];
-            for (auto& r : spec_result.nonsugra) ns_group.push_back(std::move(r));
+            for (auto& r : spec_result.nonsugra) {
+                // Copy tag BEFORE move (reference would dangle after std::move)
+                std::string t = r.tag.empty() ? spec.tag : r.tag;
+                if (tag_to_spec.find(t) == tag_to_spec.end()) tag_to_spec[t] = &spec;
+                nonsugra_by_tag[t].push_back(std::move(r));
+            }
         }
 
         // If this is the first spec in the group, cache its multi-target results
@@ -1523,9 +1900,9 @@ int main(int argc, char* argv[]) {
                                + "|N:" + std::to_string(cached_r.hat1_multi_targets.size());
                     // Include catalog_id (LST source) so different build paths are not merged
                     extra += "|cid:" + std::to_string(cached_r.catalog_id);
-                    std::string key = cached_r.eigenvalues.empty()
-                        ? dedup_key_v2(cached_r.final_IF, extra)
-                        : dedup_key_v2_cached(cached_r.final_IF, cached_r.eigenvalues, extra);
+                    DedupKey128 key = cached_r.eigenvalues.empty()
+                        ? dedup_key_v2_binary(cached_r.final_IF, extra)
+                        : dedup_key_v2_cached_binary(cached_r.final_IF, cached_r.eigenvalues, extra);
                     if (seen.insert(key).second)
                         raw.push_back(std::move(cached_r));
                 }
@@ -1535,13 +1912,17 @@ int main(int argc, char* argv[]) {
 
         std::cout << " → " << raw.size() << " raw";
 
-        // Accumulate into tag group
-        auto& group = results_by_tag[spec.tag];
-        for (auto& r : raw) group.push_back(std::move(r));
-        if (tag_to_spec.find(spec.tag) == tag_to_spec.end())
-            tag_to_spec[spec.tag] = &spec;
-
-        std::cout << ", total " << group.size() << "\n";
+        // Accumulate into tag group — bucket by r.tag (mix variants like
+        // so16n2mix/su3n2mix/su2n3mix/su8mix/so7/so7mix keep their own tag).
+        size_t added = 0;
+        for (auto& r : raw) {
+            // Copy tag BEFORE move (reference would dangle after std::move)
+            std::string t = r.tag.empty() ? spec.tag : r.tag;
+            if (tag_to_spec.find(t) == tag_to_spec.end()) tag_to_spec[t] = &spec;
+            results_by_tag[t].push_back(std::move(r));
+            added++;
+        }
+        std::cout << ", added " << added << " (total tags: " << results_by_tag.size() << ")\n";
     }
 
     // Deduplicate within each tag group and write
@@ -1564,8 +1945,11 @@ int main(int argc, char* argv[]) {
             return a.catalog_id < b.catalog_id;
         });
 
-        // Write
-        const ExternalSpec* rep = tag_to_spec[tag];
+        // Write (guard against tags that appeared via spurious operator[]
+        // and never had a real spec assigned)
+        auto it_ts = tag_to_spec.find(tag);
+        if (it_ts == tag_to_spec.end() || !it_ts->second) continue;
+        const ExternalSpec* rep = it_ts->second;
         std::string fname = dir + "/" + tag + ".cat";
         write_phase1_cat(fname, *rep, deduped);
 
@@ -1585,15 +1969,16 @@ int main(int argc, char* argv[]) {
         for (auto& [tag, group] : nonsugra_by_tag) {
             if (group.empty()) continue;
             // Dedup non-SUGRA
-            std::set<std::string> ns_seen;
+            std::unordered_set<DedupKey128, DedupKey128Hash> ns_seen;
+            ns_seen.reserve(group.size());
             std::vector<Phase1Result> ns_deduped;
             for (auto& r : group) {
                 std::string extra = tag;
                 // Include catalog_id (LST source) so different build paths are not merged
                 extra += "|cid:" + std::to_string(r.catalog_id);
-                std::string key = r.eigenvalues.empty()
-                    ? dedup_key_v2(r.final_IF, extra)
-                    : dedup_key_v2_cached(r.final_IF, r.eigenvalues, extra);
+                DedupKey128 key = r.eigenvalues.empty()
+                    ? dedup_key_v2_binary(r.final_IF, extra)
+                    : dedup_key_v2_cached_binary(r.final_IF, r.eigenvalues, extra);
                 if (ns_seen.insert(key).second) ns_deduped.push_back(std::move(r));
             }
             std::sort(ns_deduped.begin(), ns_deduped.end(),
