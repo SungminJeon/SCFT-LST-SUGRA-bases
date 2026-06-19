@@ -46,23 +46,23 @@ The strings below are the legal `tag` values you can pass to
   Hat-1 externals (isHat1 = 1):
     hat1m1, hat1m2
 
-CATALOG STATISTICS (full catalog, 16 groups, 11,480,734 bases total)
+CATALOG STATISTICS (full catalog, 16 groups, 11,867,809 bases total)
 --------------------------------------------------------------------
 "Base count" = number of distinct base entries matching the row.
 Counts are configuration-based, not "contains at least one tag".
 
-  T_H ranges:   2 .. 160 (139 distinct values).
+  T_H ranges:   2 .. 160 (142 distinct values).
   See catalogs/stats_by_TH.csv for the full per-T_H breakdown.
 
   By number of externals:
-    1:   324,924 | 2: 1,265,972 | 3: 3,409,121 | 4: 3,671,994
-    5: 2,023,775 | 6:   639,421 | 7:   128,527 | 8:    15,965
-    9:     1,022 | 10:       13
+    1:   347,595 | 2: 1,349,655 | 3: 3,571,116 | 4: 3,765,505
+    5: 2,045,517 | 6:   642,470 | 7:   128,894 | 8:    16,018
+    9:     1,026 | 10:       13
 
-  By external configuration (complete multiset): 4,066 distinct combos.
-  Top 5: su2+su2+su2 (483,003), su2+su2+su3 (469,593),
-         su2+su2 (366,539), su2+su2+su2+su3 (363,270),
-         su2+su2+su2n3mix (319,012).  See README.md and
+  By external configuration (complete multiset): 4,068 distinct combos.
+  Top 5: su2+su2+su2 (495,779), su2+su2+su3 (490,085),
+         su2+su2 (388,021), su2+su2+su2+su3 (370,277),
+         su2+su2+su2n3mix (326,831).  See README.md and
          catalogs/stats_by_combo.csv for the full ranking.
 
 USAGE EXAMPLES
