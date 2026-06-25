@@ -1,4 +1,4 @@
-# LSTListCatalog dataset
+# LSTList_filtered dataset
 
 | TH | count | file |
 |---:|---:|---|
@@ -9,13 +9,13 @@
 |5|28|[TH005.tsv](data/TH005.tsv)|
 |6|54|[TH006.tsv](data/TH006.tsv)|
 |7|77|[TH007.tsv](data/TH007.tsv)|
-|8|124|[TH008.tsv](data/TH008.tsv)|
-|9|147|[TH009.tsv](data/TH009.tsv)|
+|8|125|[TH008.tsv](data/TH008.tsv)|
+|9|148|[TH009.tsv](data/TH009.tsv)|
 |10|169|[TH010.tsv](data/TH010.tsv)|
 |11|191|[TH011.tsv](data/TH011.tsv)|
-|12|225|[TH012.tsv](data/TH012.tsv)|
+|12|226|[TH012.tsv](data/TH012.tsv)|
 |13|226|[TH013.tsv](data/TH013.tsv)|
-|14|238|[TH014.tsv](data/TH014.tsv)|
+|14|239|[TH014.tsv](data/TH014.tsv)|
 |15|270|[TH015.tsv](data/TH015.tsv)|
 |16|270|[TH016.tsv](data/TH016.tsv)|
 |17|245|[TH017.tsv](data/TH017.tsv)|
