@@ -1,4 +1,4 @@
-"catalog type"	"catalog id"	"id"	"list"	"29(TH-1)+H-V"	"gauge algebra"	"symmetry"	"H-String Weight"
+"catalog type"	"catalog id"	"id"	"list"	"29TH+H-V"	"gauge algebra"	"symmetry"	"H-String Weight"
 "A_dummy"	"9"	1	"{1,2,2,2,2,2,2,2,1}"	232	"0"	"Inversion"	"{1, 1, 1, 1, 1, 1, 1, 1, 1}"
 "D_dummy"	"9"	2	"{2,{2,2},2,2,2,2,2,1}"	232	"0"	"{1,2}"	"{1, 1, 2, 2, 2, 2, 2, 2, 2}"
 "N1"	"10342"	3	"{1,2,3,2,1,{1,{1,6}},1}"	143	"e6+so(7)+2 su(2)"	"{6,9}"	"{1, 1, 1, 2, 3, 1, 1, 1, 1}"
