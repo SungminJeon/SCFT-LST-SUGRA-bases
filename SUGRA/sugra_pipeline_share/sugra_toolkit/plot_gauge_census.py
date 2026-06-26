@@ -46,23 +46,35 @@ labels = [l for l, _ in single] + [l for l, _ in nhc]
 vals = [v for _, v in single] + [v for _, v in nhc]
 colors = [SINGLE_COLOR] * len(single) + [NHC_COLOR] * len(nhc)
 
+def _fmt(n):
+    if n >= 1_000_000:
+        return f"{n / 1e6:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1e3:.0f}k"
+    return str(n)
+
+
 plt.rcParams.update({"font.family": "serif", "mathtext.fontset": "cm",
                      "axes.linewidth": 1.1, "savefig.dpi": 200})
-fig, ax = plt.subplots(figsize=(max(9, len(labels) * 0.52), 6))
-fig.subplots_adjust(left=0.09, right=0.98, top=0.93, bottom=0.24)
-ax.bar(range(len(labels)), vals, color=colors, edgecolor="none", zorder=3)
+fig, ax = plt.subplots(figsize=(max(11, len(labels) * 0.62), 6.8))
+fig.subplots_adjust(left=0.085, right=0.985, top=0.90, bottom=0.27)
+ax.bar(range(len(labels)), vals, color=colors, edgecolor="none", width=0.72, zorder=3)
 ax.set_yscale("log")
+ax.set_xlim(-0.8, len(labels) - 0.2)                 # side breathing room
 ax.set_xticks(range(len(labels)))
-ax.set_xticklabels(labels, rotation=55, ha="right", fontsize=10)
+ax.set_xticklabels(labels, rotation=50, ha="right", fontsize=10.5)
 ax.set_ylabel("Number of SUGRA blocks (log)", fontsize=14)
-ax.set_title(r"SUGRA blocks containing each gauge algebra ($\geq 1$)", fontsize=14)
-ax.grid(True, axis="y", color="#cfcfcf", linewidth=0.7, zorder=0)
-ax.set_ylim(top=max(vals) * 3)
+ax.set_title(r"SUGRA blocks containing each gauge algebra ($\geq 1$)",
+             fontsize=15, pad=12)
+ax.grid(True, axis="y", color="#d8d8d8", linewidth=0.7, zorder=0)
+ax.set_ylim(0.7, max(vals) * 12)                     # generous top headroom
 ax.legend(handles=[Patch(color=SINGLE_COLOR, label="single-curve external gauge"),
                    Patch(color=NHC_COLOR, label="NHC cluster (counted separately)")],
-          fontsize=11, frameon=True)
+          fontsize=11.5, frameon=True, framealpha=0.95, loc="upper right")
+# compact horizontal count just above each bar
 for i, v in enumerate(vals):
-    ax.text(i, v * 1.25, f"{v:,}", ha="center", va="bottom", fontsize=6.5, rotation=90)
+    ax.text(i, v * 1.45, _fmt(v), ha="center", va="bottom", fontsize=8.5,
+            color="#333333")
 
 for ext in ("png", "pdf"):
     fig.savefig(os.path.join(SD, f"blocks_per_gauge.{ext}"), bbox_inches="tight")
