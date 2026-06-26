@@ -181,9 +181,38 @@ intermediate. `finalize_sugra.sh` is idempotent and safe to re-run by hand.
 | `gen_sugra_phase3` | Glue two Phase 1 entries that share an external curve. |
 | `cat2tex` | Convert `.cat` files into LaTeX tables. |
 
-## Mathematica Interface
+## Analysis — Python toolkit (`sugra_toolkit/`) — **recommended**
 
-`SUGRACatalog.m` loads any of the produced `.cat` files for interactive analysis. Key entry points: `LoadCatalog`, `FindEntries`, `ShowEntry`, `EntryIF`, `TMin`. See `guide.m` and `tutorial.m`.
+**This is the current, maintained way to read and analyse the catalog.** No build
+step: `pip install -r sugra_toolkit/requirements.txt` (just numpy + matplotlib), then
+
+```python
+import sugra
+cat = sugra.Catalog("path/to/final_byT")      # e.g. "sugra blocks clean final"
+cat.tensors(); cat.combos(8)
+b = cat.load(8, "e6+su3")[0]
+b.IF, b.physics, b.t_min()                      # numpy IF, {Hc,V,Hn,det,sig}, T_min
+cat.find(t_h=8, externals=["e6", "su3"])        # order-free multiset query
+```
+
+Catalog-wide statistics & figures (also in the toolkit):
+- `sugra_toolkit/stats.py`, `gauge_analysis.py` — scan a catalog → summary CSVs.
+- `sugra_toolkit/make_plots.py` — publication figures (`.png` + `.pdf`).
+- **Precomputed outputs:** `gauge_out/` and `stats_final/` (CSVs + plots), and a
+  curated headline summary in `sugra_toolkit/catalog_summary/`.
+
+See **`sugra_toolkit/README.md`** for the full API, the statistics snapshot, and
+the data layout.
+
+## Mathematica interface (legacy — unmaintained)
+
+> **Note:** `SUGRACatalog.m` is an **older** interface that is **no longer
+> maintained** and does **not** reflect the current catalog format/conventions
+> (su2/su2n3mix tagging, 1-tag-per-NHC-cluster, the `1`/special_m1 external, …).
+> Use the Python toolkit above. Kept for reference only.
+
+`SUGRACatalog.m` loads `.cat` files: `LoadCatalog`, `FindEntries`, `ShowEntry`,
+`EntryIF`, `TMin`. See `guide.m`, `tutorial.m`.
 
 ## Catalog Format
 
@@ -220,8 +249,16 @@ gen_sugra_nhc_ext_phase2.cpp
                           NHC ext Phase 2 binary
 cat2tex.cpp               LaTeX exporter
 run_chain.sh              Multi-round chain driver
+run_pipeline*.sh          One-command pipeline drivers (build → … → finalize)
+finalize_sugra.sh         Dedup post-step → final_byT (THE clean catalog)
 Makefile                  Build rules
 unified.cat               LST base catalog (input)
-SUGRACatalog.m            Mathematica analysis package
-guide.m, tutorial.m       Mathematica usage examples
+
+sugra_toolkit/            Python analysis toolkit (recommended) — loader, stats,
+                          gauge analysis, plots, catalog_summary/  [see its README]
+gauge_out/                Precomputed gauge-analysis CSVs + figures
+stats_final/              Precomputed stats CSVs (by_combo, by_LSTGauge, …)
+
+SUGRACatalog.m            Mathematica analysis package (legacy, unmaintained)
+guide.m, tutorial.m       Mathematica usage examples (legacy)
 ```
