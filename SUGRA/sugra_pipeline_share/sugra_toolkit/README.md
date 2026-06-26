@@ -244,7 +244,7 @@ Regenerate with `python make_plots.py` (writes `.png` + `.pdf`). Full set in
 [blocks vs #external](../gauge_out/Number_GBs_by_nExternal.png) ·
 [distinct patterns vs `T_H+1`](../gauge_out/Number_distinct_patterns.png) ·
 [distinct patterns vs `T`](../gauge_out/Number_distinct_patterns_by_T.png) —
-plus [blocks per gauge algebra](../stats_final/blocks_per_gauge.png),
+plus [blocks per external](../stats_final/blocks_per_gauge.png),
 [external frequency](../stats_final/external_frequency.png) and
 [frozen `T` vs #blocks](../Frozen%20blocks/analysis/frozen_T_vs_blocks.png).
 

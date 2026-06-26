@@ -64,7 +64,7 @@ ax.set_xlim(-0.8, len(labels) - 0.2)                 # side breathing room
 ax.set_xticks(range(len(labels)))
 ax.set_xticklabels(labels, rotation=50, ha="right", fontsize=10.5)
 ax.set_ylabel("Number of SUGRA blocks (log)", fontsize=14)
-ax.set_title(r"SUGRA blocks containing each gauge algebra ($\geq 1$)",
+ax.set_title(r"SUGRA blocks containing each external ($\geq 1$)",
              fontsize=15, pad=12)
 ax.grid(True, axis="y", color="#d8d8d8", linewidth=0.7, zorder=0)
 ax.set_ylim(0.7, max(vals) * 12)                     # generous top headroom
