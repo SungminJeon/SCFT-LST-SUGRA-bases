@@ -1,5 +1,13 @@
 # LSTList_filtered_combined dataset
 
+## catalog type
+
+The `catalog type` column labels the LST type of each base:
+
+- `NN`: No Node
+- `N`*X* (*X* = 1, ..., 17): *X* nodes
+- `A_dummy`, `D_dummy`: A- and D-type dummy LSTs
+
 | TH | count | file |
 |---:|---:|---|
 |1|1|[TH001.tsv](data/TH001.tsv)|
