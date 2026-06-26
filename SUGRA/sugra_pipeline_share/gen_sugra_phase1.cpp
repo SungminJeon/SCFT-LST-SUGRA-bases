@@ -896,6 +896,15 @@ inline Phase1SpecResult generate_single_spec(
                         Phase1Result r;
                         r.spec_id = spec.id; r.catalog_id = entry.id; r.catalog_type = entry.type;
                         r.base_T = entry.T; r.target_idx = m3; r.ext_curve_idx = ext_idx;
+                        // FIX: this -2 attaches to a (-3) (m3) + (-1)s -> it is su2n3mix,
+                        // NOT plain su2. Without this the tag defaults to the parent spec
+                        // ("su2"), mislabeling su2n3mix bases as su2 (see the su2n3mix block
+                        // below / phase2 attach_mixed_generic which tag it correctly).
+                        r.tag = "su2n3mix";
+                        r.ext_si = -2;
+                        r.target_si = base_IF(m3, m3);   // primary target is the (-3)
+                        r.int_num = 1;
+                        r.is_hat1 = false;
                         std::vector<int> all_targets = {m3};
                         all_targets.insert(all_targets.end(), m1_targets.begin(), m1_targets.end());
                         r.hat1_multi_targets = all_targets;
@@ -984,13 +993,17 @@ inline Phase1SpecResult generate_single_spec(
             if (m1c.empty()) return;
             int max_m1 = std::min((int)m1c.size(), 4);
             enumerate_subsets_v2(m1c, 1, max_m1, [&](const std::vector<int>& m1_targets) {
+              // (-1) legs vary int=1..mixed_int_max (match phase2 attach_mixed_generic
+              // and the so7mix / inline-mix siblings); the special curve keeps special_int.
+              enumerate_int_nums((int)m1_targets.size(), config.mixed_int_max, [&](const std::vector<int>& int_nums) {
                 Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n_base + 1, n_base + 1);
                 new_IF.block(0, 0, n_base, n_base) = base_IF;
                 new_IF(n_base, n_base) = ext_si;
                 new_IF(n_base, special_curve) = special_int;
                 new_IF(special_curve, n_base) = special_int;
-                for (int t : m1_targets) {
-                    new_IF(n_base, t) = 1; new_IF(t, n_base) = 1;
+                for (int i = 0; i < (int)m1_targets.size(); i++) {
+                    new_IF(n_base, m1_targets[i]) = int_nums[i];
+                    new_IF(m1_targets[i], n_base) = int_nums[i];
                 }
                 int ext_idx = n_base;
 
@@ -1030,6 +1043,7 @@ inline Phase1SpecResult generate_single_spec(
                 r.nhc = nhc; r.anomaly = anom; r.sig = new_sig; r.eigenvalues = std::move(ev);
                 if (is_sugra) push_result(r, new_IF, nhc);
                 else push_nonsugra(r, new_IF, nhc);
+              });
             });
         };
 
@@ -1223,12 +1237,12 @@ inline Phase1SpecResult generate_single_spec(
                     run_2_attach(t2, {}, {}, "2");
                 }
 
-                // "2mix": 1 or 2 (-1) targets with int_num in 1..3
-                if (!m1c.empty()) {
+                // "2mix": 1 or 2 (-1) targets with int_num in 1..g_twomix_int_max (default 3)
+                if (!g_no_2mix && !m1c.empty()) {
                     int max_m1 = std::min((int)m1c.size(), 2);
                     for (int t2 : targets_2) {
                         enumerate_subsets_v2(m1c, 1, max_m1, [&](const std::vector<int>& m1_targets) {
-                            enumerate_int_nums((int)m1_targets.size(), 3, [&](const std::vector<int>& int_nums) {
+                            enumerate_int_nums((int)m1_targets.size(), g_twomix_int_max, [&](const std::vector<int>& int_nums) {
                                 run_2_attach(t2, m1_targets, int_nums, "2mix");
                             });
                         });
@@ -1252,12 +1266,18 @@ inline Phase1SpecResult generate_single_spec(
                     for (int b = a+1; b < (int)m2c.size(); b++) {
                         int max_m1 = std::min((int)m1c.size(), 4);
                         enumerate_subsets_v2(m1c, 1, max_m1, [&](const std::vector<int>& m1_targets) {
+                          // so7's (-1) legs vary int=1..mixed_int_max (like the other mix
+                          // variants); the two (-2) legs stay int=1. (-3) ext self-int.
+                          enumerate_int_nums((int)m1_targets.size(), config.mixed_int_max, [&](const std::vector<int>& int_nums) {
                             Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n_base+1, n_base+1);
                             new_IF.block(0,0,n_base,n_base) = base_IF;
                             new_IF(n_base, n_base) = -3;
                             new_IF(n_base, m2c[a]) = 1; new_IF(m2c[a], n_base) = 1;
                             new_IF(n_base, m2c[b]) = 1; new_IF(m2c[b], n_base) = 1;
-                            for (int t : m1_targets) { new_IF(n_base, t) = 1; new_IF(t, n_base) = 1; }
+                            for (int i = 0; i < (int)m1_targets.size(); i++) {
+                                new_IF(n_base, m1_targets[i]) = int_nums[i];
+                                new_IF(m1_targets[i], n_base) = int_nums[i];
+                            }
                             int ext_idx = n_base;
 
                             if (sig_pos_exceeds_one_fast(new_IF, config.T_max)) return;
@@ -1288,6 +1308,7 @@ inline Phase1SpecResult generate_single_spec(
                             r.nhc = nhc; r.anomaly = anom; r.sig = new_sig; r.eigenvalues = std::move(ev);
                             if (is_sugra) push_result(r, new_IF, nhc);
                             else push_nonsugra(r, new_IF, nhc);
+                          });
                         });
                     }
                 }
@@ -1538,12 +1559,17 @@ inline Phase1SpecResult generate_single_spec(
                         for (int b = a + 1; b < (int)m2c.size(); b++) {
                             int max_m1 = std::min((int)m1c.size(), 4);
                             enumerate_subsets_v2(m1c, 1, max_m1, [&](const std::vector<int>& m1_targets) {
+                              // (-1) legs vary int=1..mixed_int_max (mirror main-loop so7mix).
+                              enumerate_int_nums((int)m1_targets.size(), config.mixed_int_max, [&](const std::vector<int>& int_nums) {
                                 Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n_base + 1, n_base + 1);
                                 new_IF.block(0, 0, n_base, n_base) = base_IF;
                                 new_IF(n_base, n_base) = -3;
                                 new_IF(n_base, m2c[a]) = 1; new_IF(m2c[a], n_base) = 1;
                                 new_IF(n_base, m2c[b]) = 1; new_IF(m2c[b], n_base) = 1;
-                                for (int t : m1_targets) { new_IF(n_base, t) = 1; new_IF(t, n_base) = 1; }
+                                for (int i = 0; i < (int)m1_targets.size(); i++) {
+                                    new_IF(n_base, m1_targets[i]) = int_nums[i];
+                                    new_IF(m1_targets[i], n_base) = int_nums[i];
+                                }
                                 int ext_idx = n_base;
 
                                 if (sig_pos_exceeds_one_fast(new_IF, config.T_max)) return;
@@ -1570,8 +1596,121 @@ inline Phase1SpecResult generate_single_spec(
                                 r.nhc = nhc; r.anomaly = anom; r.sig = new_sig; r.eigenvalues = std::move(ev);
                                 if (_is_sugra) push_result(r, new_IF, nhc);
                                 else push_nonsugra(r, new_IF, nhc);
+                              });
                             });
                         }
+                    }
+                }
+            }
+            // su3n2mix on dummies: (-3) → (-2) int=1 + (-1)s. Mirrors main-loop
+            // su3n2mix block (try_mixed(-3, m2, 1, m1c)) so DM:A/D LSTs also get
+            // su3n2mix seeds — structurally valid (dummy has -2 targets + -1 curves).
+            if (spec.ext_si == -3 && spec.target_si == -1 && !spec.is_hat1 && !skip_multi_target) {
+                std::vector<int> m1c, m2c;
+                for (int i = 0; i < n_base; i++) {
+                    if (base_IF(i, i) == -1) {
+                        double used = used_cc_on_minus1_nhc(base_IF, i);
+                        if (used + central_charge(GAUGE_G2, 1) <= config.cc_budget + 1e-9)
+                            m1c.push_back(i);
+                    } else if (base_IF(i, i) == -2) m2c.push_back(i);
+                }
+                if (!m2c.empty() && !m1c.empty()) {
+                    for (int m2 : m2c) {
+                        int max_m1 = std::min((int)m1c.size(), 4);
+                        enumerate_subsets_v2(m1c, 1, max_m1, [&](const std::vector<int>& m1_targets) {
+                          enumerate_int_nums((int)m1_targets.size(), config.mixed_int_max, [&](const std::vector<int>& int_nums) {
+                            Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n_base + 1, n_base + 1);
+                            new_IF.block(0, 0, n_base, n_base) = base_IF;
+                            new_IF(n_base, n_base) = -3;
+                            new_IF(n_base, m2) = 1; new_IF(m2, n_base) = 1;
+                            for (int i = 0; i < (int)m1_targets.size(); i++) {
+                                new_IF(n_base, m1_targets[i]) = int_nums[i];
+                                new_IF(m1_targets[i], n_base) = int_nums[i];
+                            }
+                            int ext_idx = n_base;
+
+                            if (sig_pos_exceeds_one_fast(new_IF, config.T_max)) return;
+                            NHCResult nhc = {true, "", {}, {}, {}};
+                            if (config.check_nhc) { nhc = check_nhc(new_IF, config.cc_budget); if (!nhc.passes) return; }
+
+                            std::vector<double> ev;
+                            auto new_sig = compute_sig(new_IF, ev);
+                            if (new_sig.sig_pos != 1) return;
+
+                            AnomalyResult anom = compute_anomaly(nhc, new_sig);
+                            bool _is_sugra = true;
+                            if (config.check_anomaly && anom.H_neutral < 0) _is_sugra = false;
+                            if (_is_sugra) { std::set<int> h1; if (reject_nonuni(new_IF, new_sig, anom, h1)) _is_sugra = false; }
+
+                            Phase1Result r;
+                            r.spec_id = spec.id; r.catalog_id = id; r.catalog_type = type;
+                            r.base_T = base_sig.sig_neg; r.target_idx = m2; r.ext_curve_idx = ext_idx;
+                            r.tag = "su3n2mix";
+                            r.ext_si = -3; r.target_si = -2; r.int_num = 1; r.is_hat1 = false;
+                            r.hat1_multi_targets = {m2};
+                            r.hat1_multi_targets.insert(r.hat1_multi_targets.end(), m1_targets.begin(), m1_targets.end());
+                            r.base_IF = base_IF; r.final_IF = new_IF;
+                            r.nhc = nhc; r.anomaly = anom; r.sig = new_sig; r.eigenvalues = std::move(ev);
+                            if (_is_sugra) push_result(r, new_IF, nhc);
+                            else push_nonsugra(r, new_IF, nhc);
+                          });
+                        });
+                    }
+                }
+            }
+            // so16n2mix on dummies: (-4) → (-2) int=2 + (-1)s. Mirrors main-loop
+            // so16n2mix block (try_mixed(-4, m2, 2, m1c)). Structurally valid on
+            // dummy (-2 targets + -1 curves), same gap class as su3n2mix above.
+            if (spec.ext_si == -3 && spec.target_si == -1 && !spec.is_hat1 && !skip_multi_target) {
+                std::vector<int> m1c, m2c;
+                for (int i = 0; i < n_base; i++) {
+                    if (base_IF(i, i) == -1) {
+                        double used = used_cc_on_minus1_nhc(base_IF, i);
+                        if (used + central_charge(gauge_from_si(-4), 1) <= config.cc_budget + 1e-9)
+                            m1c.push_back(i);
+                    } else if (base_IF(i, i) == -2) m2c.push_back(i);
+                }
+                if (!m2c.empty() && !m1c.empty()) {
+                    for (int m2 : m2c) {
+                        int max_m1 = std::min((int)m1c.size(), 4);
+                        enumerate_subsets_v2(m1c, 1, max_m1, [&](const std::vector<int>& m1_targets) {
+                          enumerate_int_nums((int)m1_targets.size(), config.mixed_int_max, [&](const std::vector<int>& int_nums) {
+                            Eigen::MatrixXi new_IF = Eigen::MatrixXi::Zero(n_base + 1, n_base + 1);
+                            new_IF.block(0, 0, n_base, n_base) = base_IF;
+                            new_IF(n_base, n_base) = -4;
+                            new_IF(n_base, m2) = 2; new_IF(m2, n_base) = 2;
+                            for (int i = 0; i < (int)m1_targets.size(); i++) {
+                                new_IF(n_base, m1_targets[i]) = int_nums[i];
+                                new_IF(m1_targets[i], n_base) = int_nums[i];
+                            }
+                            int ext_idx = n_base;
+
+                            if (sig_pos_exceeds_one_fast(new_IF, config.T_max)) return;
+                            NHCResult nhc = {true, "", {}, {}, {}};
+                            if (config.check_nhc) { nhc = check_nhc(new_IF, config.cc_budget); if (!nhc.passes) return; }
+
+                            std::vector<double> ev;
+                            auto new_sig = compute_sig(new_IF, ev);
+                            if (new_sig.sig_pos != 1) return;
+
+                            AnomalyResult anom = compute_anomaly(nhc, new_sig);
+                            bool _is_sugra = true;
+                            if (config.check_anomaly && anom.H_neutral < 0) _is_sugra = false;
+                            if (_is_sugra) { std::set<int> h1; if (reject_nonuni(new_IF, new_sig, anom, h1)) _is_sugra = false; }
+
+                            Phase1Result r;
+                            r.spec_id = spec.id; r.catalog_id = id; r.catalog_type = type;
+                            r.base_T = base_sig.sig_neg; r.target_idx = m2; r.ext_curve_idx = ext_idx;
+                            r.tag = "so16n2mix";
+                            r.ext_si = -4; r.target_si = -2; r.int_num = 2; r.is_hat1 = false;
+                            r.hat1_multi_targets = {m2};
+                            r.hat1_multi_targets.insert(r.hat1_multi_targets.end(), m1_targets.begin(), m1_targets.end());
+                            r.base_IF = base_IF; r.final_IF = new_IF;
+                            r.nhc = nhc; r.anomaly = anom; r.sig = new_sig; r.eigenvalues = std::move(ev);
+                            if (_is_sugra) push_result(r, new_IF, nhc);
+                            else push_nonsugra(r, new_IF, nhc);
+                          });
+                        });
                     }
                 }
             }
@@ -1708,6 +1847,7 @@ int main(int argc, char* argv[]) {
     int T_min = (argc > 3) ? std::atoi(argv[3]) : 0;
     bool det_sq_mode = false;
     bool no_su2 = false;
+    std::string only_tags_arg;  // --only-tags t1,t2,... : keep only these spec tags
     bool largeint_mode = false;
     bool largeint_mixed_mode = false;
     int largeint_kmin = 1, largeint_kmax = 30;
@@ -1728,6 +1868,9 @@ int main(int argc, char* argv[]) {
         }
         if (std::string(argv[i]) == "--use-lst-T") { /* now canonical, no-op */ }
         if (std::string(argv[i]) == "--no-su2") no_su2 = true;
+        if (std::string(argv[i]) == "--only-tags" && i + 1 < argc) only_tags_arg = argv[i + 1];
+        if (std::string(argv[i]) == "--2mix-intmax" && i + 1 < argc) g_twomix_int_max = std::atoi(argv[i + 1]);
+        if (std::string(argv[i]) == "--no-2mix") g_no_2mix = true;
         if (std::string(argv[i]) == "--save-nonsugra") {}  // handled below in config
     }
     std::string suffix = "_T" + std::to_string(T_min) + "_" + std::to_string(T_max);
@@ -1766,6 +1909,24 @@ int main(int argc, char* argv[]) {
         all_specs.erase(std::remove_if(all_specs.begin(), all_specs.end(),
             [](const ExternalSpec& s) { return s.ext_si == -2 && s.target_si == -1 && !s.is_hat1; }),
             all_specs.end());
+    }
+    // --only-tags: keep only specs whose tag is in the requested set. Output-
+    // preserving because dedup/output/multi-target-cache are all keyed per-tag,
+    // and each (ext_si,target_si,is_hat1) cache group maps to a single tag — so
+    // dropping whole tags leaves the kept tags' .cat files byte-identical.
+    // NOTE: so7/so7mix/2/2mix are emitted inline under the su3 spec (ext=-3,
+    // tgt=-1), so request "su3" to recover those output tags.
+    if (!only_tags_arg.empty()) {
+        std::set<std::string> keep;
+        std::stringstream ss(only_tags_arg);
+        std::string t;
+        while (std::getline(ss, t, ',')) if (!t.empty()) keep.insert(t);
+        all_specs.erase(std::remove_if(all_specs.begin(), all_specs.end(),
+            [&](const ExternalSpec& s) { return keep.find(s.tag) == keep.end(); }),
+            all_specs.end());
+        std::cout << "[--only-tags] keeping spec tags:";
+        for (auto& k : keep) std::cout << " " << k;
+        std::cout << "\n";
     }
     std::cout << "External specs: " << all_specs.size() << " types"
               << (no_su2 ? " [no-su2]" : "") << "\n\n";

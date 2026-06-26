@@ -450,8 +450,15 @@ inline void enhance_external_m2_gauge(NHCResult& nhc,
     // Skip if this -2 already carries gauge from check_nhc (part of an NHC chain
     // like -2-3, -2-3-2, -2-2-3, -2-4). Enhancement only applies to a standalone
     // -2 external attached purely to (-1) target.
-    if (ext_idx >= 0 && ext_idx < (int)nhc.curve_gauges.size()
-        && nhc.curve_gauges[ext_idx].dim != 0) return;
+    // NOTE: the -2-2-3 NHC has gauges {NONE, sp1, g2} — its NONE end -2 has dim 0,
+    // so a dim-only guard would wrongly su2-enhance it. Also skip any curve that
+    // belongs to a real NHC cluster (cluster nhc != nullptr), not just dim != 0.
+    if (ext_idx >= 0 && ext_idx < (int)nhc.curve_gauges.size()) {
+        if (nhc.curve_gauges[ext_idx].dim != 0) return;
+        int cl = nhc.curve_cluster[ext_idx];
+        if (cl >= 0 && cl < (int)nhc.clusters.size() && nhc.clusters[cl].nhc != nullptr)
+            return;
+    }
 
     // Set gauge on the external -2
     nhc.curve_gauges[ext_idx] = GAUGE_SU2;
@@ -1037,6 +1044,15 @@ static int g_current_base_T = 0;
 // Each OpenMP thread mutates g_current_base_T independently per input entry.
 #pragma omp threadprivate(g_current_base_T)
 #endif
+
+// Max intersection number for (-1) edges of the 2mix attachment (default 1..3).
+// Set via --2mix-intmax in phase1 and nhc_ext_phase2 to throttle 2mix volume.
+inline int g_twomix_int_max = 3;
+
+// --no-2mix: skip the 2mix enumeration (the (-1)-edge variants) entirely, keeping
+// only the pure "2" attachment. 2mix is recoverable from "2" via expand_2_to_2mix,
+// so this drops the 2mix volume while keeping the generating set "2".
+inline bool g_no_2mix = false;
 
 inline AnomalyResult compute_anomaly(const Eigen::MatrixXi& /*IF*/, const NHCResult& nhc) {
     AnomalyResult a;

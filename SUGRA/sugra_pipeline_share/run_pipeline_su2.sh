@@ -114,3 +114,11 @@ ls -d "${OUTDIR}"/cat_nhc_ext_nhc_ext_unified_${SUFFIX}_r* 2>/dev/null | while r
     n=$(find "$d" -name '*.cat' -exec grep -c '^ENTRY' {} + 2>/dev/null | awk -F: '{s+=$2}END{print s+0}')
     echo "  $(basename "$d"): $n entries"
 done
+
+# --- Step 6: finalize into the single canonical deduped SUGRA catalog ---
+echo ""
+echo "=== Step 6: finalize (dedup) -> ${OUTDIR}/final_byT ==="
+date
+./finalize_sugra.sh --archive "${OUTDIR}"
+[ "$?" -eq 0 ] || { echo "ERROR: finalize_sugra failed."; exit 1; }
+date

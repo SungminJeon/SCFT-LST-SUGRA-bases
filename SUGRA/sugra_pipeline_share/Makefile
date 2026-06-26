@@ -45,7 +45,7 @@ COMMON_OBJ = $(COMMON_SRC:.cpp=.o)
 # Fix Tensor.C → Tensor.o
 COMMON_OBJ := Tensor.o TopoLineCompact_enhanced.o Topology_enhanced.o
 
-all: gen_sugra_phase1 gen_sugra_phase2 gen_sugra_phase3 gen_sugra_nhc_ext gen_sugra_nhc_ext_phase2 cat2tex
+all: gen_sugra_phase1 gen_sugra_phase2 gen_sugra_phase3 gen_sugra_nhc_ext gen_sugra_nhc_ext_phase2 gen_sugra_special_m1 cat2tex
 
 Tensor.o: Tensor.C Tensor.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -71,11 +71,15 @@ gen_sugra_nhc_ext: gen_sugra_nhc_ext.cpp $(COMMON_OBJ) sugra_generator.h theory_
 gen_sugra_nhc_ext_phase2: gen_sugra_nhc_ext_phase2.cpp $(COMMON_OBJ) sugra_generator.h theory_sugra.h
 	$(CXX) $(CXXFLAGS) -o $@ $< $(COMMON_OBJ) $(LDFLAGS)
 
+# Special single-external phase1: gauge-less (-1) on kernel-component-1 curves
+gen_sugra_special_m1: gen_sugra_special_m1.cpp $(COMMON_OBJ) sugra_generator.h theory_sugra.h
+	$(CXX) $(CXXFLAGS) -o $@ $< $(COMMON_OBJ) $(LDFLAGS)
+
 cat2tex: cat2tex.cpp $(COMMON_OBJ) sugra_generator.h theory_sugra.h
 	$(CXX) $(CXXFLAGS) -o $@ $< $(COMMON_OBJ) $(LDFLAGS)
 
 clean:
-	rm -f *.o gen_sugra_phase1 gen_sugra_phase2 gen_sugra_phase3 gen_sugra_nhc_ext gen_sugra_nhc_ext_phase2 cat2tex
+	rm -f *.o gen_sugra_phase1 gen_sugra_phase2 gen_sugra_phase3 gen_sugra_nhc_ext gen_sugra_nhc_ext_phase2 gen_sugra_special_m1 cat2tex
 
 # ── Quick test: T<=5 ──
 test: all

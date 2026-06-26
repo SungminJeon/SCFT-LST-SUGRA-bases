@@ -1,10 +1,10 @@
 #!/bin/bash
-# Run full SUGRA pipeline for a given tensor (T) range.
+# Run full SUGRA pipeline WITH su2, WITHOUT 2mix (--no-2mix on phase1 + chain).
 #
-# Usage:   ./run_pipeline.sh T_MIN T_MAX
-# Example: ./run_pipeline.sh 0 10        # T = 0..10  → outputs in cat_*_t010
-#          ./run_pipeline.sh 11 20       # T = 11..20 → outputs in cat_*_t1120
-#          ./run_pipeline.sh 21 30       # T = 21..30 → outputs in cat_*_t2130
+# Usage:   ./run_pipeline_su2.sh T_MIN T_MAX
+# Example: ./run_pipeline_su2.sh 0 10    # T = 0..10  → outputs in T_0_10_su2/
+#          ./run_pipeline_su2.sh 11 20  # T = 11..20 → outputs in T_11_20_su2/
+#          (su2 single -2 to -1 externals are INCLUDED; default run_pipeline.sh skips them)
 #
 # Suffix rule: t<T_MIN><T_MAX> with no separator (always 2 digits each).
 #
@@ -28,9 +28,9 @@ T_MAX=$2
 
 # Build a 4-char suffix from the two values, e.g. T_MIN=0  T_MAX=10 → "010"
 #                                                T_MIN=11 T_MAX=20 → "1120"
-SUFFIX=$(printf "t%d%02d" "$T_MIN" "$T_MAX")
+SUFFIX=$(printf "t%d%02d_su2_no2mix" "$T_MIN" "$T_MAX")
 
-COMMON_FLAGS="--use-lst-T --no-su2"
+COMMON_FLAGS="--use-lst-T"
 
 echo "=========================================="
 echo "SUGRA pipeline: T = ${T_MIN}..${T_MAX}  (suffix: ${SUFFIX})"
@@ -46,10 +46,10 @@ make 2>&1 | tail -5
 # --- Step 1: Phase 1 (single-curve external attach) ---
 echo ""
 echo "=== Step 1: phase1 (T=${T_MIN}..${T_MAX}) ==="
-rm -rf cat_1ext_nosu2_${SUFFIX} cat_1ext_nosu2_${SUFFIX}_nonsugra
+rm -rf cat_1ext_su2_${SUFFIX} cat_1ext_su2_${SUFFIX}_nonsugra
 date
-time ./gen_sugra_phase1 unified.cat ${T_MAX} ${T_MIN} ${COMMON_FLAGS} --save-nonsugra \
-    --out cat_1ext_nosu2_${SUFFIX} 2>&1 | tail -5
+time ./gen_sugra_phase1 unified.cat ${T_MAX} ${T_MIN} ${COMMON_FLAGS} --no-2mix --save-nonsugra \
+    --out cat_1ext_su2_${SUFFIX} 2>&1 | tail -5
 [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "ERROR: phase1 failed — aborting."; exit 1; }
 
 # --- Step 2: NHC ext (NHC chain attach) ---
@@ -69,9 +69,9 @@ echo ""
 echo "=== Step 3: merge phase1 + nhc_ext ==="
 rm -rf cat_phase1_nhc_merged_${SUFFIX} cat_phase1_nhc_merged_${SUFFIX}_nonsugra
 mkdir -p cat_phase1_nhc_merged_${SUFFIX} cat_phase1_nhc_merged_${SUFFIX}_nonsugra
-for f in cat_1ext_nosu2_${SUFFIX}/*.cat; do [ -f "$f" ] && cp "$f" "cat_phase1_nhc_merged_${SUFFIX}/$(basename "$f")"; done
+for f in cat_1ext_su2_${SUFFIX}/*.cat; do [ -f "$f" ] && cp "$f" "cat_phase1_nhc_merged_${SUFFIX}/$(basename "$f")"; done
 for f in cat_nhc_ext_${SUFFIX}/*.cat; do [ -f "$f" ] && cp "$f" "cat_phase1_nhc_merged_${SUFFIX}/$(basename "$f")"; done
-for f in cat_1ext_nosu2_${SUFFIX}_nonsugra/*.cat; do [ -f "$f" ] && cp "$f" "cat_phase1_nhc_merged_${SUFFIX}_nonsugra/$(basename "$f")"; done
+for f in cat_1ext_su2_${SUFFIX}_nonsugra/*.cat; do [ -f "$f" ] && cp "$f" "cat_phase1_nhc_merged_${SUFFIX}_nonsugra/$(basename "$f")"; done
 for f in cat_nhc_ext_${SUFFIX}_nonsugra/*.cat; do [ -f "$f" ] && cp "$f" "cat_phase1_nhc_merged_${SUFFIX}_nonsugra/$(basename "$f")"; done
 SUGRA_COUNT=$(find cat_phase1_nhc_merged_${SUFFIX} -name '*.cat' -exec grep -c '^ENTRY' {} + | awk -F: '{s+=$2}END{print s}')
 NONSUGRA_COUNT=$(find cat_phase1_nhc_merged_${SUFFIX}_nonsugra -name '*.cat' -exec grep -c '^ENTRY' {} + | awk -F: '{s+=$2}END{print s}')
@@ -86,7 +86,7 @@ time ./run_chain.sh "./gen_sugra_nhc_ext_phase2" \
     cat_phase1_nhc_merged_${SUFFIX} \
     nhc_ext_unified_${SUFFIX} \
     9 \
-    "${COMMON_FLAGS}" \
+    "${COMMON_FLAGS} --no-2mix" \
     cat_phase1_nhc_merged_${SUFFIX}_nonsugra 2>&1 | tail -40
 [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "ERROR: phase2 chain (run_chain.sh) failed — aborting."; exit 1; }
 
@@ -97,11 +97,11 @@ echo "=========================================="
 date
 
 # --- Step 5: collect all outputs into a single per-range directory ---
-OUTDIR="T_${T_MIN}_${T_MAX}"
+OUTDIR="T_${T_MIN}_${T_MAX}_su2_no2mix"
 echo ""
 echo "=== Step 5: collect catalogs into ${OUTDIR}/ ==="
 mkdir -p "${OUTDIR}"
-mv cat_1ext_nosu2_${SUFFIX} cat_1ext_nosu2_${SUFFIX}_nonsugra "${OUTDIR}/" 2>/dev/null || true
+mv cat_1ext_su2_${SUFFIX} cat_1ext_su2_${SUFFIX}_nonsugra "${OUTDIR}/" 2>/dev/null || true
 mv cat_nhc_ext_${SUFFIX} cat_nhc_ext_${SUFFIX}_nonsugra "${OUTDIR}/" 2>/dev/null || true
 mv cat_phase1_nhc_merged_${SUFFIX} cat_phase1_nhc_merged_${SUFFIX}_nonsugra "${OUTDIR}/" 2>/dev/null || true
 mv cat_nhc_ext_nhc_ext_unified_${SUFFIX}_* "${OUTDIR}/" 2>/dev/null || true

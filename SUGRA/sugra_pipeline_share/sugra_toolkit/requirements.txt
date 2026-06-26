@@ -1,0 +1,5 @@
+# sugra_toolkit dependencies (Python 3.9+) — the toolkit is pandas-free.
+numpy            # sugra.py loader, stats.py, gauge_analysis.py
+matplotlib       # plots: gauge_analysis.py, make_plots.py, external_frequency.py
+# (pandas is NOT needed; it only appears in docstring examples for browsing the
+#  optional index.csv in a notebook/spreadsheet if you prefer it.)

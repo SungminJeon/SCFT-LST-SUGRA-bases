@@ -564,10 +564,28 @@ inline CatEntry make_result(
     CatEntry r;
     r.externals = parent.externals;
     for (auto& ne : new_exts) r.externals.push_back(ne);
-    // Build sorted combo_key for dedup (order-independent, matching Phase 2)
+    // Build sorted combo_key for dedup (order-independent). An NHC cluster attaches
+    // one ExtInfo PER CURVE (needed downstream), but in the combo it must count as
+    // ONE cluster, not one tag per curve: a -2-2-3 cluster is "nhc_2_2_3", NOT
+    // "nhc_2_2_3+nhc_2_2_3+nhc_2_2_3". Collapse each NHC tag's curve count to its
+    // cluster count (curves / curves-per-cluster). This matches the seed (gen_sugra
+    // _nhc_ext writes COMBO = single cluster tag) so seed and chain are consistent.
     {
+        auto nhc_curves_per = [](const std::string& t) -> int {
+            if (t == "nhc_2_3")   return 2;
+            if (t == "nhc_2_3_2") return 3;
+            if (t == "nhc_2_2_3") return 3;
+            if (t == "nhc_2_4")   return 2;
+            return 1;   // single-curve external
+        };
+        std::map<std::string,int> cnt;
+        for (auto& ei : r.externals) cnt[ei.tag]++;
         std::vector<std::string> tags;
-        for (auto& ei : r.externals) tags.push_back(ei.tag);
+        for (auto& kv : cnt) {
+            int per = nhc_curves_per(kv.first);
+            int n = kv.second / per;   // cluster instances (curve count is a multiple of `per`)
+            for (int i = 0; i < n; i++) tags.push_back(kv.first);
+        }
         std::sort(tags.begin(), tags.end());
         r.combo_key = "";
         for (size_t i = 0; i < tags.size(); i++) {
@@ -597,8 +615,15 @@ inline bool has_hat1(const CatEntry& entry, bool new_is_hat1 = false) {
 // to the entry's last non-hat1 block. hat1 attach always allowed.
 // Output-preserving: dedup_key_v2 (graph-iso) absorbs duplicate paths to same
 // final IF; canonical just picks one representative.
+// --no-canonical: disable the tag-non-decreasing skip so EVERY attachment order
+// is explored (dedup_key_v2 still removes duplicate paths). Required when the
+// seed is restricted to a late-canonical tag (e.g. a 223-only seed cannot attach
+// any tag < "nhc_2_2_3" under the canonical rule, losing all such combos).
+inline bool g_no_canonical = false;
+
 inline bool canonical_skip(const CatEntry& entry,
                             const std::string& new_tag, bool new_is_hat1) {
+    if (g_no_canonical) return false;
     if (new_is_hat1) return false;
     for (auto it = entry.externals.rbegin(); it != entry.externals.rend(); ++it) {
         if (!it->is_hat1) return new_tag < it->tag;
@@ -1376,12 +1401,12 @@ inline void attach_mixed_multi(
                 }
             }
 
-            // "2mix": + 1 or 2 (-1) targets with int_num in 1..3
-            if (!m1_curves.empty() && !canonical_skip(entry, "2mix", false)) {
+            // "2mix": + 1 or 2 (-1) targets with int_num in 1..g_twomix_int_max (default 3)
+            if (!g_no_2mix && !m1_curves.empty() && !canonical_skip(entry, "2mix", false)) {
                 for (int target_2 : targets_2) {
                     int max_m1 = std::min((int)m1_curves.size(), 2);  // user's spec: at most 2 (-1) targets
                     enumerate_subsets_v2(m1_curves, 1, max_m1, [&](const std::vector<int>& m1_targets) {
-                        enumerate_int_nums((int)m1_targets.size(), 3, [&](const std::vector<int>& int_nums) {
+                        enumerate_int_nums((int)m1_targets.size(), g_twomix_int_max, [&](const std::vector<int>& int_nums) {
                             run_2_attach(target_2, m1_targets, int_nums, "2mix");
                         });
                     });
@@ -1408,6 +1433,10 @@ int main(int argc, char* argv[]) {
         else if (std::string(argv[i]) == "--save-nonsugra") g_save_nonsugra = true;
         else if (std::string(argv[i]) == "--no-su2") g_no_su2 = true;
         else if (std::string(argv[i]) == "--no-223") g_no_223 = true;
+        else if (std::string(argv[i]) == "--2mix-intmax" && i + 1 < argc) g_twomix_int_max = std::atoi(argv[++i]);
+        else if (std::string(argv[i]) == "--no-2mix") g_no_2mix = true;
+        else if (std::string(argv[i]) == "--no-canonical") g_no_canonical = true;
+        else if (std::string(argv[i]).rfind("--", 0) == 0) { /* unknown flag: ignore, don't eat round arg */ }
         else round_str = argv[i];
     }
 

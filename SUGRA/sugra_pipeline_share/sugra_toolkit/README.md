@@ -1,0 +1,187 @@
+# 6D SUGRA Base Catalog — analysis toolkit
+
+A catalog of 6D supergravity blocks, organized so you can explore it
+**by hand, with a spreadsheet, or with a few lines of Python.**
+
+## Requirements
+
+Python 3.9+ and `pip install -r requirements.txt` (just **numpy** + **matplotlib**;
+the toolkit is pandas-free). The loader (`sugra.py`) needs only numpy; plotting
+needs matplotlib.
+
+## Data layout
+
+One folder per LST tensor number `T_H`, one file per external **combo**:
+
+```
+catalog/
+  T2_2/   e6.cat   e6+su3.cat   su2+su2.cat   ...
+  T3_3/   ...
+  ...
+```
+
+- **`T<n>_<n>/`** — folder for tensor count `T_H = n`.
+- **`<combo>.cat`** — all bases whose external content is that combo
+  (e.g. `e6+su3.cat`). The combo is the `+`-joined, sorted external tags.
+
+Each `.cat` file holds many **bases**, one `ENTRY … END` block each. You rarely
+need the raw format — see "File format" at the bottom if you do.
+
+## Three ways to use it
+
+### 1. Python loader (`sugra.py`) — flexible queries
+```python
+import sugra
+cat = sugra.Catalog("catalog")          # point at the data folder
+
+cat.tensors()                           # [2, 3, 4, ...] available T_H
+cat.combos(8)[:10]                      # combos available at T_H=8
+
+bases = cat.load(8, "e6+su3")           # list of Base objects
+b = bases[0]
+b.T_H, b.T, b.combo                     # 8, 9, 'e6+su3'
+b.tags                                  # ['e6', 'su3']
+b.physics                               # {'T':9,'Hc':..,'V':..,'Hn':..,'det':..,'sig':(..)}
+b.IF                                    # numpy intersection-form matrix
+b.t_min()                               # T_min (None if undefined)
+
+# Don't know the combo? Filter:
+cat.find(t_h=8, externals=["e6", "su3"])   # multiset match (order-free)
+cat.find(t_h=8, contains="e8")             # any base with an e8 external
+cat.find(t_h=5, t_min=8)                   # by T_min
+```
+No setup, no multiprocessing — safe to use in any script, notebook, or REPL.
+
+### 2. Spreadsheet / pandas — no parsing needed
+Build CSV summaries once:
+```
+python build_index.py catalog          # -> catalog/index.csv + summary.csv
+```
+- **`index.csv`** — one row per base (T_H, T, combo, Hc, V, Hn, det, sig…).
+  Best with pandas (it is large). Add `--tmin` to also compute T_min.
+- **`summary.csv`** — one row per (T_H, combo) with base counts. Small; opens
+  fine in Excel for a quick overview.
+
+```python
+import pandas as pd
+df = pd.read_csv("catalog/index.csv")
+df[(df.T_H == 8) & (df.combo == "e6+su3")]
+df[df.combo.str.contains("e8")].groupby("T_H").size()
+```
+
+### 3. Tutorial notebook
+`tutorial.ipynb` — runnable, worked examples with explanations.
+
+## Statistics, gauge algebra & plots
+
+Two scanners read the whole catalog and emit summary CSVs:
+
+```
+python stats.py          catalog stats_out     # base counts by T_H / combo / LST / gauge
+python gauge_analysis.py catalog gauge_out      # full-base gauge algebra + rank, by T / T_H
+```
+- `stats.py` → `by_T_H.csv`, `by_combo.csv`, `by_LST.csv`, `by_LSTGauge.csv`,
+  `classification.csv`. Its `LSTGauge` is the gauge of the LST part (externals
+  excluded); NHC clusters matched by eigenvalue spectrum.
+- `gauge_analysis.py` → `by_TH_nExt_gauge.csv`, `gauge_patterns_by_THplus1.csv`,
+  `by_T_summary.csv` (+ scatter PNGs). It computes the **full base** gauge from
+  the intersection form (not the stored `V`), so it is correct even where the
+  generator over-counts: the lone `-2` of a `-2-2-3` cluster carries no gauge,
+  and the gauge-less `special_m1` `-1` external (combo `1`, `isHat1=False`) is
+  **not** mistaken for a `hat1` (`su8`/`su16`).
+
+Turn those CSVs into figures (no re-scan, seconds):
+```
+python make_plots.py [SRC_DIR] [OUT_DIR]   # publication figures (.png + .pdf), 6 plots
+python plots.py                            # quick re-plot, editable STYLE block, 3 plots
+```
+`make_plots.py` defaults `SRC`/`OUT` to its own directory — drop it next to the
+CSVs and run it. Tweak the STYLE block (colours, dpi, markers) and re-run.
+
+Per-external frequency (after `stats.py`):
+```
+python external_frequency.py stats_out/by_combo.csv   # how often each external appears
+```
+Counts are per external **object** under the current 1-tag-per-NHC-cluster
+policy (one `nhc_2_2_3` cluster = +1, not +3 curves).
+
+## Rebuilding the clean tree from raw archives
+
+If you have the raw per-T archives (or decade zips), produce the clean tree with:
+```
+python build_clean.py "<raw source>" catalog
+```
+It reads only the **canonical** catalog directories — `cat_phase1_nhc_merged_*`
+and `cat_nhc_ext_nhc_ext_unified_*sext` (covers `sext` and `nsext`) — and skips
+the redundant mirror dirs (`cat_1ext_nosu2_*`, `cat_nhc_ext_t*`) and any
+`*_nonsugra`. Those mirror dirs are exact subsets of the canonical ones, so no
+deduplication is needed (the build reports `dups removed=0`).
+
+## Physics cheat-sheet
+
+- **`T_H`** — tensor count of the underlying Little String Theory (LST) base.
+- **`T`**  — tensor count of the extended base (= `sig_neg`).
+- **`T_min`** — minimum `T` admitting a SUGRA b0 lift; `None` if undefined.
+- **external** — an extra `(-n)` curve glued onto the LST. Tags: `su2`(-2),
+  `su3`(-3), `so8`(-4), `f4`(-5), `e6`(-6), `e7p`(-7), `e7`(-8), `e8`(-12),
+  plus mixed/special embeddings `su2n3`, `su2n3mix`, `su3n2`, `su3n2mix`,
+  `so7`, `so7mix`, …, NHC clusters `nhc_2_3`, `nhc_2_2_3`, `nhc_2_3_2`, and
+  Hat-1 externals `hat1m1`, `hat1m2`.
+- **`IF`** — intersection-form matrix of the extended base.
+
+## File format (only if you need it)
+
+A `.cat` file is plain text; each base is:
+```
+ENTRY <id>
+COMBO <combo>
+EXTERNALS <n>
+  <curveIdx> <specId> <tag> <extSI> <targetSI> <intNum> <isHat1>   × n
+BASE <catalogId> <catalogType> <baseT(=T_H)> <ifSize>
+PHYSICS <T> <Hc> <V> <Hn> <det> <sigPos> <sigNeg> <sigZero>
+IF <n>
+  <n integers> × n rows
+REMAINING <n>
+  <curveIdx> <selfInt> <availCC>   × n        (optional)
+END
+```
+The loader parses all of this for you into `Base` objects.
+
+## Statistics and data
+
+Snapshot of the current catalog (`sugra blocks clean final`):
+
+| quantity | value |
+|---|---|
+| Total gravity blocks | **9,624,745** |
+| Tensor range | `T_H` = 1–192   (`T` = σ₋ = 2–193) |
+| Peak | `T_H` = 4 — 1,622,642 blocks |
+| Max total gauge rank | 296 (at `T` = 193) |
+| Distinct gauge patterns | 35,233 |
+| External curves / base | 1–12 (most have 3–4) |
+
+Gravity blocks by number of external curves:
+
+| #ext | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| blocks | 233,909 | 1,055,976 | 2,512,338 | 2,875,754 | 1,852,507 | 774,243 | 241,064 | 61,666 | 14,471 | 2,523 | 280 | 14 |
+
+### Full breakdowns (CSV)
+
+In [`catalog_summary/`](catalog_summary/) — regenerate any from a catalog with
+`python gauge_analysis.py <catalog> gauge_out` (and `python stats.py <catalog> stats_out`):
+
+- [`by_T_H.csv`](catalog_summary/by_T_H.csv) — blocks per `T_H`
+- [`by_T_summary.csv`](catalog_summary/by_T_summary.csv) — blocks & max gauge rank per `T` (=σ₋)
+- [`by_TH_nExt_gauge.csv.gz`](catalog_summary/by_TH_nExt_gauge.csv.gz) — blocks per (`T_H`, #external, gauge algebra)
+- [`gauge_patterns_by_THplus1.csv.gz`](catalog_summary/gauge_patterns_by_THplus1.csv.gz) — blocks per (`T_H+1`, gauge algebra)
+
+### Key figures
+
+Regenerate with `python make_plots.py` (see [`catalog_summary/`](catalog_summary/) for `.png`; `make_plots.py` also writes `.pdf`).
+
+![blocks vs T_H](catalog_summary/Number_GBs_by_TH_log.png)
+![blocks vs T](catalog_summary/Number_GBs_by_T_log.png)
+![max gauge rank vs T](catalog_summary/maxrank_by_T.png)
+![blocks vs #external](catalog_summary/Number_GBs_by_nExternal.png)
+![distinct gauge patterns vs T_H+1](catalog_summary/Number_distinct_patterns.png)

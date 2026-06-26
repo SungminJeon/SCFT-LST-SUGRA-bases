@@ -38,7 +38,7 @@ for round in $(seq 2 $MAX); do
 
     # --- SUGRA chain ---
     if [ -d "$SUGRA_IN" ]; then
-        S_N=$(find "$SUGRA_IN" -name "*.cat" -exec grep -c '^ENTRY' {} + 2>/dev/null | awk -F: '{s+=$2}END{print s+0}')
+        S_N=$(find "$SUGRA_IN" -name "*.cat" -exec grep -h '^ENTRY' {} + 2>/dev/null | wc -l | tr -d ' ')
         if [ "$S_N" -gt 0 ]; then
             echo "  SUGRA chain ($S_N from $SUGRA_IN)"
             OUTPUT=$($PHASE2 "$SUGRA_IN" ${TAG}_r${round}s $FLAGS --save-nonsugra 2>&1)
@@ -74,7 +74,7 @@ for round in $(seq 2 $MAX); do
         merge_cat_dirs "$NS_IN" "$NS_MERGE"
     fi
 
-    NS_N=$(find "$NS_MERGE" -name "*.cat" -exec grep -c '^ENTRY' {} + 2>/dev/null | awk -F: '{s+=$2}END{print s+0}')
+    NS_N=$(find "$NS_MERGE" -name "*.cat" -exec grep -h '^ENTRY' {} + 2>/dev/null | wc -l | tr -d ' ')
 
     NS_S_OUT=""
     NS_NS_OUT=""
@@ -99,7 +99,7 @@ for round in $(seq 2 $MAX); do
     [ -n "$S_OUT" ] && [ -d "$S_OUT" ] && merge_cat_dirs "$S_OUT" "$NEXT_S"
     [ -n "$NS_S_OUT" ] && [ -d "$NS_S_OUT" ] && merge_cat_dirs "$NS_S_OUT" "$NEXT_S"
 
-    NEXT_N=$(find "$NEXT_S" -name "*.cat" -exec grep -c '^ENTRY' {} + 2>/dev/null | awk -F: '{s+=$2}END{print s+0}')
+    NEXT_N=$(find "$NEXT_S" -name "*.cat" -exec grep -h '^ENTRY' {} + 2>/dev/null | wc -l | tr -d ' ')
     if [ "$NEXT_N" -eq 0 ]; then
         rm -rf "$NEXT_S"
         SUGRA_IN=""

@@ -130,11 +130,13 @@ int main(int argc, char* argv[]) {
     bool det_sq_mode = false;
     bool save_nonsugra = false;
     bool skip_223 = false;
+    bool only_223 = false;
     for (int i = 1; i < argc; i++) {
         if (std::string(argv[i]) == "--det-sq") det_sq_mode = true;
         if (std::string(argv[i]) == "--use-lst-T") { /* now canonical, no-op */ }
         if (std::string(argv[i]) == "--save-nonsugra") save_nonsugra = true;
         if (std::string(argv[i]) == "--no-223") skip_223 = true;
+        if (std::string(argv[i]) == "--only-223") only_223 = true;
     }
 
     std::cout << "=== gen_sugra_nhc_ext ===\n";
@@ -219,6 +221,10 @@ int main(int argc, char* argv[]) {
     for (auto& nhc_spec : nhc_specs) {
         if (skip_223 && nhc_spec.tag == "nhc_2_2_3") {
             std::cout << "[" << nhc_spec.id << "] " << nhc_spec.label << " (" << nhc_spec.tag << ") SKIPPED (--no-223)\n";
+            continue;
+        }
+        if (only_223 && nhc_spec.tag != "nhc_2_2_3") {
+            std::cout << "[" << nhc_spec.id << "] " << nhc_spec.label << " (" << nhc_spec.tag << ") SKIPPED (--only-223)\n";
             continue;
         }
         std::cout << "[" << nhc_spec.id << "] " << nhc_spec.label << " (" << nhc_spec.tag << ")";
