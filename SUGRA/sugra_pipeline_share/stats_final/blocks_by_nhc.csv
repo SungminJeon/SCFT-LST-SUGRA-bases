@@ -1,0 +1,5 @@
+nhc_cluster,curves,gauge,n_blocks,percent_of_total
+nhc_2_3,"(-2,-3)",su2+g2,1783426,18.530
+nhc_2_2_3,"(-2,-2,-3)",sp1+g2  (lone -2: none),454428,4.721
+nhc_2_3_2,"(-2,-3,-2)",su2+so7+su2,433384,4.503
+ANY_nhc,-,-,2576440,26.769

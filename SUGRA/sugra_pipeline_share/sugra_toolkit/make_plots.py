@@ -193,4 +193,21 @@ ax.set_ylabel("Number of distinct gauge patterns", fontsize=18)
 dashed_marker(ax, xmax4, rf"$T^H+1 = {xmax4}$")
 save(fig, "Number_distinct_patterns")
 
+# ============================================ FILE 5: distinct patterns vs T
+import os as _os
+if _os.path.exists(_os.path.join(SRC, "gauge_patterns_by_T.csv")):
+    p5 = defaultdict(set)                                # distinct patterns by T (= sig_neg)
+    for row in _rows("gauge_patterns_by_T.csv"):
+        p5[int(row[0])].add(row[1])
+    qx = np.array(sorted(p5)); qy = np.array([len(p5[k]) for k in qx])
+    xmax5 = int(qx.max())
+    fig, ax = base_fig()
+    scatter(ax, qx, qy, color="#0aa3a3")                # teal
+    style_axes(ax)
+    ax.set_xlim(0, 200); ax.set_ylim(bottom=0)
+    ax.set_xlabel(r"$T\ (=\sigma_-)$", fontsize=21)
+    ax.set_ylabel("Number of distinct gauge patterns", fontsize=18)
+    dashed_marker(ax, xmax5, rf"$T = {xmax5}$")
+    save(fig, "Number_distinct_patterns_by_T")
+
 print("ALL DONE ->", OUT)

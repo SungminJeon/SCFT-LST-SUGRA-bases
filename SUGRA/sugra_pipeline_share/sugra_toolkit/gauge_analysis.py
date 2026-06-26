@@ -9,6 +9,7 @@ generator's stored V over-counts these by su2 on some bases).
 Outputs (in <out>/):
   by_TH_nExt_gauge.csv          (T_H, n_external_curves, gauge_algebra) -> n_bases
   gauge_patterns_by_THplus1.csv (T_H+1, gauge_algebra)                  -> n_bases
+  gauge_patterns_by_T.csv       (T = sig_neg, gauge_algebra)            -> n_bases
   by_T_summary.csv              (T = sig_neg)  -> n_bases, max_total_rank
   blocks_per_T.png              scatter: non-Higgsable gravity blocks vs T (orange)
   maxrank_per_T.png             scatter: maximal total gauge rank vs T (red)
@@ -112,6 +113,7 @@ def run(root, out):
     os.makedirs(out, exist_ok=True)
     table = Counter()                       # (T_H, n_ext, gauge) -> n
     patterns = Counter()                    # (T_H, gauge) -> n
+    patterns_T = Counter()                  # (T = sig_neg, gauge) -> n
     count_t = Counter()                     # T (= sig_neg) -> n_bases
     maxrank_t = defaultdict(int)            # T (= sig_neg) -> max total rank
     count_th = Counter()                    # T_H -> n_bases
@@ -137,6 +139,7 @@ def run(root, out):
                 rank = sum(RANK.get(f, 0) for f in facs)
                 table[(T_H, n_ext, gauge)] += 1
                 patterns[(T_H, gauge)] += 1
+                patterns_T[(sig_neg, gauge)] += 1
                 count_t[sig_neg] += 1
                 count_th[T_H] += 1
                 if rank > maxrank_t[sig_neg]:
@@ -154,6 +157,9 @@ def run(root, out):
     _csv("gauge_patterns_by_THplus1.csv", ["T_H_plus_1", "gauge_algebra", "n_bases"],
          [(th + 1, g, n) for (th, g), n in
           sorted(patterns.items(), key=lambda kv: (kv[0][0], -kv[1]))])
+    _csv("gauge_patterns_by_T.csv", ["T", "gauge_algebra", "n_bases"],
+         [(t, g, n) for (t, g), n in
+          sorted(patterns_T.items(), key=lambda kv: (kv[0][0], -kv[1]))])
     ts = sorted(count_t)
     _csv("by_T_summary.csv", ["T", "n_bases", "max_total_rank"],
          [(t, count_t[t], maxrank_t[t]) for t in ts])
