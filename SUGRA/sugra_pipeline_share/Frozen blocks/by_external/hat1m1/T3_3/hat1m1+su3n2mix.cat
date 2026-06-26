@@ -1,0 +1,19 @@
+ENTRY 1
+COMBO hat1m1+su3n2mix
+EXTERNALS 2
+4 14 hat1m1 -1 -1 1 1
+5 16 su3n2mix -3 -2 1 0
+BASE -4 DM:A(4) 3 6
+PHYSICS 4 44 80 193 -1 1 5 0
+IF 6
+-1 1 0 0 1 0
+1 -2 1 0 0 1
+0 1 -2 1 0 0
+0 0 1 -1 0 1
+1 0 0 0 -1 0
+0 1 0 1 0 -3
+REMAINING 3
+1 -2 -1.00
+2 -2 -1.00
+3 -1 5.20
+END

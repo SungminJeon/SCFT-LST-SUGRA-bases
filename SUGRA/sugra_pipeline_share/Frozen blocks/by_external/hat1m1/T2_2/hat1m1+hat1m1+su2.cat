@@ -1,0 +1,18 @@
+ENTRY 2
+COMBO hat1m1+hat1m1+su2
+EXTERNALS 3
+3 14 hat1m1 -1 -1 1 1
+4 0 su2 -2 -1 1 0
+5 14 hat1m1 -1 -1 1 1
+BASE -3 DM:A(3) 2 6
+PHYSICS 3 76 129 239 0 1 4 1
+IF 6
+-1 1 0 1 1 0
+1 -2 1 0 0 0
+0 1 -1 0 1 1
+1 0 0 -1 0 0
+1 0 1 0 -2 0
+0 0 1 0 0 -1
+REMAINING 1
+1 -2 -1.00
+END

@@ -1,0 +1,153 @@
+ENTRY 0
+COMBO f4+hat1m1+su2+su2
+EXTERNALS 4
+2 14 hat1m1 -1 -1 1 1
+3 1 su2 -2 -1 2 0
+4 0 su2 -2 -1 1 0
+5 9 f4 -5 -1 1 0
+BASE -2 DM:A(2) 1 6
+PHYSICS 2 44 121 292 -8 1 5 0
+IF 6
+-1 1 1 0 1 0
+1 -1 0 2 0 1
+1 0 -1 0 0 0
+0 2 0 -2 0 0
+1 0 0 0 -2 0
+0 1 0 0 0 -5
+REMAINING 1
+1 -1 1.30
+END
+ENTRY 1
+COMBO f4+hat1m1+su2+su2
+EXTERNALS 4
+2 14 hat1m1 -1 -1 1 1
+3 0 su2 -2 -1 1 0
+4 0 su2 -2 -1 1 0
+5 9 f4 -5 -1 1 0
+BASE -2 DM:A(2) 1 6
+PHYSICS 2 44 121 292 -20 1 5 0
+IF 6
+-1 1 1 0 0 0
+1 -1 0 1 1 1
+1 0 -1 0 0 0
+0 1 0 -2 0 0
+0 1 0 0 -2 0
+0 1 0 0 0 -5
+REMAINING 2
+0 -1 1.00
+1 -1 0.80
+END
+ENTRY 2
+COMBO f4+hat1m1+su2+su2
+EXTERNALS 4
+2 14 hat1m1 -1 -1 1 1
+3 1 su2 -2 -1 2 0
+4 0 su2 -2 -1 1 0
+5 9 f4 -5 -1 1 0
+BASE -2 DM:A(2) 1 6
+PHYSICS 2 44 121 292 -20 1 5 0
+IF 6
+-1 1 1 0 0 0
+1 -1 0 2 1 1
+1 0 -1 0 0 0
+0 2 0 -2 0 0
+0 1 0 0 -2 0
+0 1 0 0 0 -5
+REMAINING 2
+0 -1 1.00
+1 -1 0.30
+END
+ENTRY 3
+COMBO f4+hat1m1+su2+su2
+EXTERNALS 4
+2 14 hat1m1 -1 -1 1 1
+3 0 su2 -2 -1 1 0
+4 0 su2 -2 -1 1 0
+5 9 f4 -5 -1 1 0
+BASE -2 DM:A(2) 1 6
+PHYSICS 2 44 121 292 -23 1 5 0
+IF 6
+-1 1 1 0 1 0
+1 -1 0 1 0 1
+1 0 -1 0 0 0
+0 1 0 -2 0 0
+1 0 0 0 -2 0
+0 1 0 0 0 -5
+REMAINING 1
+1 -1 1.80
+END
+ENTRY 4
+COMBO f4+hat1m1+su2+su2
+EXTERNALS 4
+2 14 hat1m1 -1 -1 1 1
+3 1 su2 -2 -1 2 0
+4 0 su2 -2 -1 1 0
+5 9 f4 -5 -1 1 0
+BASE -2 DM:A(2) 1 6
+PHYSICS 2 44 121 292 -28 1 5 0
+IF 6
+-1 1 1 0 1 0
+1 -1 0 2 1 1
+1 0 -1 0 0 0
+0 2 0 -2 0 0
+1 1 0 0 -2 0
+0 1 0 0 0 -5
+REMAINING 1
+1 -1 0.30
+END
+ENTRY 5
+COMBO f4+hat1m1+su2+su2
+EXTERNALS 4
+2 14 hat1m1 -1 -1 1 1
+3 0 su2 -2 -1 1 0
+4 0 su2 -2 -1 1 0
+5 9 f4 -5 -1 1 0
+BASE -2 DM:A(2) 1 6
+PHYSICS 2 44 121 292 -43 1 5 0
+IF 6
+-1 1 1 0 1 0
+1 -1 0 1 1 1
+1 0 -1 0 0 0
+0 1 0 -2 0 0
+1 1 0 0 -2 0
+0 1 0 0 0 -5
+REMAINING 1
+1 -1 0.80
+END
+ENTRY 6
+COMBO f4+hat1m1+su2+su2
+EXTERNALS 4
+2 14 hat1m1 -1 -1 1 1
+3 0 su2 -2 -1 1 0
+4 0 su2 -2 -1 1 0
+5 9 f4 -5 -1 1 0
+BASE -2 DM:A(2) 1 6
+PHYSICS 2 44 121 292 -63 1 5 0
+IF 6
+-1 1 1 0 1 0
+1 -1 0 1 2 1
+1 0 -1 0 0 0
+0 1 0 -2 0 0
+1 2 0 0 -2 0
+0 1 0 0 0 -5
+REMAINING 1
+1 -1 0.30
+END
+ENTRY 7
+COMBO f4+hat1m1+su2+su2
+EXTERNALS 4
+2 14 hat1m1 -1 -1 1 1
+3 0 su2 -2 -1 1 0
+4 0 su2 -2 -1 1 0
+5 9 f4 -5 -1 1 0
+BASE -2 DM:A(2) 1 6
+PHYSICS 2 44 121 292 -83 1 5 0
+IF 6
+-1 1 1 0 1 0
+1 -1 0 1 3 1
+1 0 -1 0 0 0
+0 1 0 -2 0 0
+1 3 0 0 -2 0
+0 1 0 0 0 -5
+REMAINING 0
+END

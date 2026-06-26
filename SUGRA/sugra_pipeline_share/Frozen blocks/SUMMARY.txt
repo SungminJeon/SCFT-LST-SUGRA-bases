@@ -1,0 +1,137 @@
+FROZEN GRAVITY BLOCKS — summary
+catalog: /Users/seongminjeon/Desktop/data_dropbox/sugra blocks clean final
+
+blocks per frozen external (blocks in any combo containing the tag):
+  hat1m1   [su8  (hat1, -1 target)  ]:   1,724 blocks  (147 combos)
+  hat1m2   [su16 (hat1, -2 target)  ]:   1,169 blocks  (5 combos)
+  su8      [su8  (frozen -2)        ]:       9 blocks  (4 combos)
+  so16n2   [so16 (frozen -4)        ]:       3 blocks  (2 combos)
+
+  total distinct frozen blocks (>=1 frozen tag): 2,905
+
+  note: su8 and so16n2 (the -2-4 frozen cluster pieces) never co-occur.
+
+hat1m1 — blocks per T_H:
+  T_H=1       807
+  T_H=2       121
+  T_H=3        52
+  T_H=4        48
+  T_H=5        60
+  T_H=6        56
+  T_H=7        57
+  T_H=8        69
+  T_H=9        71
+  T_H=10       58
+  T_H=11       54
+  T_H=12       35
+  T_H=13       31
+  T_H=14       23
+  T_H=15       26
+  T_H=16       23
+  T_H=17       18
+  T_H=18       16
+  T_H=19        4
+  T_H=20        9
+  T_H=21        8
+  T_H=22       13
+  T_H=23        8
+  T_H=24        5
+  T_H=25        4
+  T_H=26        5
+  T_H=27        5
+  T_H=28        2
+  T_H=29        2
+  T_H=30        1
+  T_H=31        2
+  T_H=32        7
+  T_H=33        2
+  T_H=34        1
+  T_H=35        2
+  T_H=36        2
+  T_H=37        2
+  T_H=39        1
+  T_H=40        2
+  T_H=46        2
+  T_H=47        4
+  T_H=48        2
+  T_H=52        1
+  T_H=59        2
+  T_H=64        1
+  combos: 2+2+hat1m1, 2+2+hat1m1+su3, 2+e6+hat1m1, 2+e7+hat1m1, 2+e7p+hat1m1, 2+e8+hat1m1, 2+f4+hat1m1, 2+f4+hat1m1+su3, 2+hat1m1, 2+hat1m1+so8, 2+hat1m1+so8+so8, 2+hat1m1+so8+su3, 2+hat1m1+su2n3, 2+hat1m1+su2n3+su2n3, 2+hat1m1+su3, 2+hat1m1+su3n2, e6+hat1m1, e6+hat1m1+su2, e6+hat1m1+su2+su2, e6+hat1m1+su2+su2+su2, e6+hat1m1+su2+su3, e6+hat1m1+su2n3, e6+hat1m1+su3, e6+hat1m1+su3n2, e7+hat1m1, e7+hat1m1+su2, e7+hat1m1+su2+su2, e7+hat1m1+su2n3, e7+hat1m1+su2n3mix, e7+hat1m1+su3, e7p+hat1m1, e7p+hat1m1+su2, e7p+hat1m1+su2+su2, e7p+hat1m1+su2n3, e7p+hat1m1+su3, e8+hat1m1, e8+hat1m1+su2, e8+hat1m1+su2n3, f4+hat1m1, f4+hat1m1+nhc_2_3, f4+hat1m1+su2, f4+hat1m1+su2+su2, f4+hat1m1+su2+su2+su2, f4+hat1m1+su2+su3, f4+hat1m1+su2+su3n2, f4+hat1m1+su2n3, f4+hat1m1+su3, f4+hat1m1+su3n2, hat1m1, hat1m1+hat1m1, hat1m1+hat1m1+su2, hat1m1+hat1m1+su2+su2, hat1m1+nhc_2_2_3, hat1m1+nhc_2_2_3+nhc_2_3, hat1m1+nhc_2_2_3+so8, hat1m1+nhc_2_2_3+su2, hat1m1+nhc_2_2_3+su2+su2, hat1m1+nhc_2_2_3+su2+su2+su2, hat1m1+nhc_2_2_3+su2+su2+su2+su2, hat1m1+nhc_2_2_3+su2+su2+su3, hat1m1+nhc_2_2_3+su2+su3, hat1m1+nhc_2_2_3+su3, hat1m1+nhc_2_2_3+su3+su3, hat1m1+nhc_2_3, hat1m1+nhc_2_3+nhc_2_3, hat1m1+nhc_2_3+nhc_2_3+su2, hat1m1+nhc_2_3+so8, hat1m1+nhc_2_3+so8+su2, hat1m1+nhc_2_3+su2, hat1m1+nhc_2_3+su2+su2, hat1m1+nhc_2_3+su2+su2+su2, hat1m1+nhc_2_3+su2+su2+su2+su2, hat1m1+nhc_2_3+su2+su2+su2+su2+su2, hat1m1+nhc_2_3+su2+su2+su2+su3, hat1m1+nhc_2_3+su2+su2+su3, hat1m1+nhc_2_3+su2+su3, hat1m1+nhc_2_3+su2+su3+su3, hat1m1+nhc_2_3+su3, hat1m1+nhc_2_3+su3+su3, hat1m1+nhc_2_3+su3n2, hat1m1+nhc_2_3_2, hat1m1+nhc_2_3_2+su2, hat1m1+nhc_2_3_2+su2+su2, hat1m1+nhc_2_3_2+su2+su2+su2, hat1m1+nhc_2_3_2+su2+su3, hat1m1+nhc_2_3_2+su3, hat1m1+so8, hat1m1+so8+so8, hat1m1+so8+so8+su2, hat1m1+so8+su2, hat1m1+so8+su2+su2, hat1m1+so8+su2+su2+su2, hat1m1+so8+su2+su2+su2+su2, hat1m1+so8+su2+su2+su2+su2+su2, hat1m1+so8+su2+su2+su2+su3, hat1m1+so8+su2+su2+su3, hat1m1+so8+su2+su3, hat1m1+so8+su2+su3+su3, hat1m1+so8+su2+su3n2, hat1m1+so8+su2n3, hat1m1+so8+su3, hat1m1+so8+su3+su3, hat1m1+so8+su3+su3n2, hat1m1+so8+su3n2, hat1m1+so8+su3n2mix, hat1m1+su2, hat1m1+su2+su2, hat1m1+su2+su2+su2, hat1m1+su2+su2+su2+su2, hat1m1+su2+su2+su2+su2+su2, hat1m1+su2+su2+su2+su2+su2+su2, hat1m1+su2+su2+su2+su2+su2+su2+su2, hat1m1+su2+su2+su2+su2+su2+su2+su2+su2, hat1m1+su2+su2+su2+su2+su2+su2+su3, hat1m1+su2+su2+su2+su2+su2+su3, hat1m1+su2+su2+su2+su2+su2+su3+su3, hat1m1+su2+su2+su2+su2+su3, hat1m1+su2+su2+su2+su2+su3+su3, hat1m1+su2+su2+su2+su3, hat1m1+su2+su2+su2+su3+su3, hat1m1+su2+su2+su2+su3+su3+su3, hat1m1+su2+su2+su3, hat1m1+su2+su2+su3+su3, hat1m1+su2+su2+su3+su3+su3, hat1m1+su2+su2n3, hat1m1+su2+su3, hat1m1+su2+su3+su3, hat1m1+su2+su3+su3+su3, hat1m1+su2+su3+su3+su3+su3, hat1m1+su2+su3+su3n2, hat1m1+su2+su3n2, hat1m1+su2+su3n2mix, hat1m1+su2n3, hat1m1+su2n3+su2n3, hat1m1+su2n3+su2n3mix, hat1m1+su2n3mix, hat1m1+su3, hat1m1+su3+su3, hat1m1+su3+su3+su3, hat1m1+su3+su3+su3+su3, hat1m1+su3+su3+su3+su3n2, hat1m1+su3+su3+su3n2, hat1m1+su3+su3+su3n2mix, hat1m1+su3+su3n2, hat1m1+su3+su3n2mix, hat1m1+su3n2, hat1m1+su3n2mix
+
+hat1m2 — blocks per T_H:
+  T_H=2         3
+  T_H=3         8
+  T_H=4        13
+  T_H=5         8
+  T_H=6        18
+  T_H=7        25
+  T_H=8        36
+  T_H=9        51
+  T_H=10       43
+  T_H=11       57
+  T_H=12       47
+  T_H=13       57
+  T_H=14       59
+  T_H=15       88
+  T_H=16       49
+  T_H=17       42
+  T_H=18       43
+  T_H=19       34
+  T_H=20       53
+  T_H=21       33
+  T_H=22       20
+  T_H=23       24
+  T_H=24       38
+  T_H=25       23
+  T_H=26       19
+  T_H=27       24
+  T_H=28       10
+  T_H=29       16
+  T_H=30       23
+  T_H=31       17
+  T_H=32       13
+  T_H=33        8
+  T_H=34        9
+  T_H=35       15
+  T_H=36       12
+  T_H=37       10
+  T_H=38        3
+  T_H=39        6
+  T_H=40       10
+  T_H=41        3
+  T_H=42       13
+  T_H=43        2
+  T_H=44        1
+  T_H=45        2
+  T_H=46       15
+  T_H=47        3
+  T_H=48       10
+  T_H=49        2
+  T_H=50        2
+  T_H=51        3
+  T_H=52        2
+  T_H=53        9
+  T_H=54        1
+  T_H=57       10
+  T_H=58        2
+  T_H=59        2
+  T_H=61        1
+  T_H=62        2
+  T_H=63        2
+  T_H=64        5
+  T_H=68        6
+  T_H=75        1
+  T_H=79        1
+  T_H=86        1
+  T_H=90        1
+  combos: 2+hat1m2, 2+hat1m2+su2, hat1m2, hat1m2+su2, hat1m2+su2n3
+
+su8 — blocks per T_H:
+  T_H=4         6
+  T_H=5         3
+  combos: su2+su8, su3+su8, su3n2+su8, su8
+
+so16n2 — blocks per T_H:
+  T_H=2         3
+  combos: so16n2, so16n2+su2

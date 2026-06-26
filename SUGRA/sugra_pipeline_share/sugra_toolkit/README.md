@@ -105,6 +105,33 @@ python external_frequency.py stats_out/by_combo.csv   # how often each external 
 Counts are per external **object** under the current 1-tag-per-NHC-cluster
 policy (one `nhc_2_2_3` cluster = +1, not +3 curves).
 
+## Frozen blocks
+
+The **frozen** gravity blocks are those carrying a frozen-flux gauge — externals
+`hat1m1` (→ `su8`), `hat1m2` (→ `su16`), `su8` (frozen `-2`), `so16n2` (frozen
+`-4`). Two tools collect and analyse them:
+
+```
+python collect_frozen.py "<catalog>" "<Frozen blocks>"   # pull blocks per frozen external
+python frozen_analysis.py "<Frozen blocks>"              # T-distribution, plot, co-gauge CSVs
+```
+
+`collect_frozen.py` writes `by_external/<tag>/T<n>_<n>/<combo>.cat` (the explicit
+blocks), plus `SUMMARY.txt` and `manifest.csv`. `frozen_analysis.py` then writes
+into `<Frozen blocks>/analysis/`:
+- `frozen_T_distribution.csv` (+ `_long`) — blocks per `T` (= σ₋ = #negative
+  eigenvalues) for each frozen external,
+- `frozen_T_vs_blocks.png/.pdf` — one figure, one colour per external,
+- `hat1m1_cogauge.csv`, `hat1m2_cogauge.csv` — gauge combos co-occurring with each
+  hat1, by frequency.
+
+A ready-made collection ships in **`../Frozen blocks/`** (alongside this toolkit).
+Snapshot of the current catalog: `hat1m1` 1,724, `hat1m2` 1,169, `su8` 9,
+`so16n2` 3 (2,905 frozen blocks total). `su8` and `so16n2` — the two `-2-4`
+frozen-cluster pieces — never co-occur. The explicit `su8`/`so16n2` forms (12
+blocks) are typeset in `../Frozen blocks/analysis/su8_so16_explicit.tex` (via
+`cat2tex`).
+
 ## Rebuilding the clean tree from raw archives
 
 If you have the raw per-T archives (or decade zips), produce the clean tree with:

@@ -258,6 +258,8 @@ sugra_toolkit/            Python analysis toolkit (recommended) — loader, stat
                           gauge analysis, plots, catalog_summary/  [see its README]
 gauge_out/                Precomputed gauge-analysis CSVs + figures
 stats_final/              Precomputed stats CSVs (by_combo, by_LSTGauge, …)
+Frozen blocks/            Frozen gravity blocks (su8/su16/so16) — explicit
+                          .cat data + analysis CSVs/plot/tex (see sugra_toolkit)
 
 SUGRACatalog.m            Mathematica analysis package (legacy, unmaintained)
 guide.m, tutorial.m       Mathematica usage examples (legacy)
