@@ -158,7 +158,7 @@ scatter(ax, T, MR, color=RED)
 style_axes(ax)
 ax.set_xlim(0, 200); ax.set_ylim(bottom=0)
 ax.set_xlabel(r"$T$", fontsize=21)
-ax.set_ylabel("Maximum total gauge rank", fontsize=18)
+ax.set_ylabel("Maximal rank of gauge algebras", fontsize=18)
 dashed_marker(ax, xmax2, rf"$T = {xmax2}$")
 save(fig, "maxrank_by_T")
 

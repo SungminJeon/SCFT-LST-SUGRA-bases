@@ -178,7 +178,7 @@ def run(root, out):
     plt.figure(figsize=(10, 5))
     plt.scatter(ts, [maxrank_t[t] for t in ts], color="red", s=16)
     plt.xlabel(r"$T\ (=\sigma_-)$")
-    plt.ylabel("Maximal total gauge rank")
+    plt.ylabel("Maximal rank of gauge algebras")
     plt.title(r"Maximal total gauge-algebra rank per $T$")
     plt.grid(True, alpha=0.3)
     plt.tight_layout(); plt.savefig(os.path.join(out, "maxrank_per_T.png"), dpi=150)

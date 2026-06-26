@@ -116,6 +116,8 @@ self_int)` (counted once per block; `su3n2/su3n2mix → g2`; gauge-less `2`/`1` 
 `../stats_final/`: `blocks_by_gauge.csv` (incl. NHC-cluster gauges),
 `blocks_by_gauge_nonhc.csv` (single-curve only), and `blocks_by_nhc.csv` (per
 NHC cluster). `by_combo.csv` there carries a `percent_of_total` column.
+`plot_gauge_census.py` turns these into a bar chart (`blocks_per_gauge.png`, y = number
+of SUGRA blocks) with single-curve external gauges and NHC clusters as separate bars.
 
 ## Frozen blocks
 
@@ -242,7 +244,8 @@ Regenerate with `python make_plots.py` (writes `.png` + `.pdf`). Full set in
 [blocks vs #external](../gauge_out/Number_GBs_by_nExternal.png) ·
 [distinct patterns vs `T_H+1`](../gauge_out/Number_distinct_patterns.png) ·
 [distinct patterns vs `T`](../gauge_out/Number_distinct_patterns_by_T.png) —
-plus [external frequency](../stats_final/external_frequency.png) and
+plus [blocks per gauge algebra](../stats_final/blocks_per_gauge.png),
+[external frequency](../stats_final/external_frequency.png) and
 [frozen `T` vs #blocks](../Frozen%20blocks/analysis/frozen_T_vs_blocks.png).
 
 Inline previews:
