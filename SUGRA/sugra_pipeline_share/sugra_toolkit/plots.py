@@ -55,7 +55,7 @@ def scatter(x, y, *, color, log, xlabel, ylabel, title, fname):
 # ─────────────── plot 1: blocks per T (= sig_neg) ───────────────
 T, nb = _read(f"{GAUGE_DIR}/by_T_summary.csv", 0, 1)
 scatter(T, nb, color=COLOR_BLOCKS, log=True,
-        xlabel=r"$T\ (=\sigma_-)$",
+        xlabel=r"$T$",
         ylabel="Number of non-Higgsable gravity blocks (log)",
         title=r"Non-Higgsable gravity blocks per $T$",
         fname="blocks_per_T.png")
@@ -63,9 +63,9 @@ scatter(T, nb, color=COLOR_BLOCKS, log=True,
 # ─────────────── plot 2: maximal total gauge rank per T ─────────
 T, mr = _read(f"{GAUGE_DIR}/by_T_summary.csv", 0, 2)
 scatter(T, mr, color=COLOR_RANK, log=False,
-        xlabel=r"$T\ (=\sigma_-)$",
-        ylabel="Maximal total gauge rank",
-        title=r"Maximal total gauge-algebra rank per $T$",
+        xlabel=r"$T$",
+        ylabel="Maximal rank of gauge algebras",
+        title=r"Maximal rank of gauge algebras per $T$",
         fname="maxrank_per_T.png")
 
 # ─────────────── plot 3: blocks per T_H + 1 ─────────────────────

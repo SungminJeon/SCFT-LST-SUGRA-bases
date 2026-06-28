@@ -205,7 +205,7 @@ if _os.path.exists(_os.path.join(SRC, "gauge_patterns_by_T.csv")):
     scatter(ax, qx, qy, color="#0aa3a3")                # teal
     style_axes(ax)
     ax.set_xlim(0, 200); ax.set_ylim(bottom=0)
-    ax.set_xlabel(r"$T\ (=\sigma_-)$", fontsize=21)
+    ax.set_xlabel(r"$T$", fontsize=21)
     ax.set_ylabel("Number of distinct gauge patterns", fontsize=18)
     dashed_marker(ax, xmax5, rf"$T = {xmax5}$")
     save(fig, "Number_distinct_patterns_by_T")

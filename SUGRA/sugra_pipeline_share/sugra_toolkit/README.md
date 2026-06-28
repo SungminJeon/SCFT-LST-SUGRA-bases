@@ -118,6 +118,11 @@ self_int)` (counted once per block; `su3n2/su3n2mix → g2`; gauge-less `2`/`1` 
 NHC cluster). `by_combo.csv` there carries a `percent_of_total` column.
 `plot_gauge_census.py` turns these into a bar chart (`blocks_per_gauge.png`, y = number
 of SUGRA blocks) with single-curve external gauges and NHC clusters as separate bars.
+`count_generator_patterns.py` counts distinct **generator (external-combo) patterns**
+by external gauge content (`su3n2 → g2`; NHC clusters by their gauges). Tag-based →
+**1,188** (`generator_patterns.csv`). With `--exact` it reads the actual IF so a `-2-3`
+grown into a `-2-3-2` is scored su2+so7+su2 (not su2+g2) → **1,293**
+(`generator_patterns_exact.csv`).
 
 ## Frozen blocks
 
@@ -219,6 +224,8 @@ Gravity blocks by number of external curves:
 - [`blocks_by_gauge.csv`](../stats_final/blocks_by_gauge.csv) — blocks per (gauge, self-int), incl. NHC-cluster gauges
 - [`blocks_by_gauge_nonhc.csv`](../stats_final/blocks_by_gauge_nonhc.csv) — same, single-curve externals only
 - [`blocks_by_nhc.csv`](../stats_final/blocks_by_nhc.csv) — blocks per NHC cluster
+- [`generator_patterns.csv`](../stats_final/generator_patterns.csv) — distinct generator (external-combo) patterns by gauge content (`su3n2→g2`), tag-based (1,188)
+- [`generator_patterns_exact.csv`](../stats_final/generator_patterns_exact.csv) — same but IF-exact (1,293; honours `-2-3`→`-2-3-2`)
 
 **Gauge / T distributions** — [`../gauge_out/`](../gauge_out/):
 - [`by_T_summary.csv`](../gauge_out/by_T_summary.csv) — blocks & max gauge rank per `T` (=σ₋)

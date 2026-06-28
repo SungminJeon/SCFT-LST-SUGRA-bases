@@ -82,7 +82,7 @@ def run(froot):
                    label=f"{t}  ({tot:,})")
     ax.set_yscale("log")
     ax.grid(True, which="major", color="#cfcfcf", linewidth=0.7, zorder=0)
-    ax.set_xlabel(r"$T$  (number of negative eigenvalues $=\sigma_-$)", fontsize=17)
+    ax.set_xlabel(r"$T$", fontsize=17)
     ax.set_ylabel("Number of gravity blocks (log)", fontsize=15)
     ax.set_title("Frozen gravity blocks per $T$", fontsize=16)
     ax.legend(title="frozen external (total)", fontsize=12, title_fontsize=12,

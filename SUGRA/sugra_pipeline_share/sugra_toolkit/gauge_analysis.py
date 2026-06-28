@@ -59,8 +59,12 @@ def _walk(comp, IF):
     return o
 
 
-def gauge_factors(IF, externals):
-    """List of gauge-algebra factors for the full base (correct convention)."""
+def gauge_per_curve(IF, externals):
+    """Per-curve gauge factor (None where the curve carries no gauge), length n.
+
+    Restricting this to the external curve indices (those in `externals`) gives
+    the external generator gauge with the -2-3 -> -2-3-2 (g2 -> so7) growth
+    handled correctly, since the grown -3 is identified from the actual IF."""
     n = len(IF)
     if n == 0:
         return []
@@ -106,7 +110,12 @@ def gauge_factors(IF, externals):
         elif e.get("extSI") == -2 and e.get("targetSI") == -1 and \
                 g[c] is None and c in pure2:            # standalone su2 only
             g[c] = "su2"
-    return [x for x in g if x]
+    return g
+
+
+def gauge_factors(IF, externals):
+    """Flat list of gauge-algebra factors for the full base (correct convention)."""
+    return [x for x in gauge_per_curve(IF, externals) if x]
 
 
 def run(root, out):
@@ -168,7 +177,7 @@ def run(root, out):
     plt.figure(figsize=(10, 5))
     plt.scatter(ts, [count_t[t] for t in ts], color="orange", s=16)
     plt.yscale("log")
-    plt.xlabel(r"$T\ (=\sigma_-)$")
+    plt.xlabel(r"$T$")
     plt.ylabel("Number of non-Higgsable gravity blocks (log)")
     plt.title(r"Non-Higgsable gravity blocks per $T$")
     plt.grid(True, alpha=0.3)
@@ -177,7 +186,7 @@ def run(root, out):
 
     plt.figure(figsize=(10, 5))
     plt.scatter(ts, [maxrank_t[t] for t in ts], color="red", s=16)
-    plt.xlabel(r"$T\ (=\sigma_-)$")
+    plt.xlabel(r"$T$")
     plt.ylabel("Maximal rank of gauge algebras")
     plt.title(r"Maximal total gauge-algebra rank per $T$")
     plt.grid(True, alpha=0.3)
