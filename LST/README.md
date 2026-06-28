@@ -21,7 +21,7 @@ to reference a base from the supergravity-block data.
 ### `id`
 
 A sequential number assigned to the bases in each $T^H$ file, numbered from the
-top of the file. It is therefore unique only within a single `TH`*N*`.tsv`.
+top of the file.
 
 ### `list`
 
