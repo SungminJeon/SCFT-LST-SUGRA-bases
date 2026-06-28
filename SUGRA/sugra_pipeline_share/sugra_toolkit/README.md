@@ -84,11 +84,10 @@ python gauge_analysis.py catalog gauge_out      # full-base gauge algebra + rank
   `classification.csv`. Its `LSTGauge` is the gauge of the LST part (externals
   excluded); NHC clusters matched by eigenvalue spectrum.
 - `gauge_analysis.py` → `by_TH_nExt_gauge.csv`, `gauge_patterns_by_THplus1.csv`,
-  `by_T_summary.csv` (+ scatter PNGs). It computes the **full base** gauge from
-  the intersection form (not the stored `V`), so it is correct even where the
-  generator over-counts: the lone `-2` of a `-2-2-3` cluster carries no gauge,
-  and the gauge-less `special_m1` `-1` external (combo `1`, `isHat1=False`) is
-  **not** mistaken for a `hat1` (`su8`/`su16`).
+  `gauge_patterns_by_T.csv`, `by_T_summary.csv` (+ scatter PNGs). It reads the
+  **full-base** gauge algebra off the intersection form — NHC clusters matched by
+  eigenvalue spectrum (the lone `-2` of a `-2-2-3` carries no gauge), `su8`/`su16`
+  from `hat1m1`/`hat1m2`, `so16` from `so16n2`.
 
 Turn those CSVs into figures (no re-scan, seconds):
 ```

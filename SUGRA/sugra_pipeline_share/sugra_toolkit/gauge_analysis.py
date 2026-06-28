@@ -3,8 +3,7 @@
 
 The full gauge algebra of a base = NHC decomposition of the WHOLE intersection
 form (LST + external curves) + su2 on standalone -2 externals + hat1 (su8/su16).
-The lone -2 of an nhc_2_2_3 cluster carries NO gauge (correct convention; the
-generator's stored V over-counts these by su2 on some bases).
+The lone -2 of an nhc_2_2_3 cluster carries NO gauge (correct convention).
 
 Outputs (in <out>/):
   by_TH_nExt_gauge.csv          (T_H, n_external_curves, gauge_algebra) -> n_bases
