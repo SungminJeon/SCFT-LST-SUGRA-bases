@@ -35,7 +35,7 @@ the paper.
 
 ### `29TH+H-V`
 
-The value of $29\,T^H + H - V$ for the base.
+The value of $29T^H + H - V$ for the base.
 
 ### `gauge algebra`
 
@@ -54,7 +54,7 @@ An empty entry means the base has no nontrivial symmetry.
 
 ### `H-String Weight`
 
-The coefficients of the $H$-string charge $f$ of `main.tex`, expressed in the
+The coefficients of the $H$-string charge $f$, expressed in the
 basis of the base's generators. The charge is the linear combination
 $f = \sum_i n_i\,\mathcal{C}_i$, and `H-String Weight` lists the coefficients
 $n_i$ in node order.
