@@ -1,12 +1,65 @@
 # LSTList_filtered_combined dataset
 
-## catalog type
+Each `TH`*N*`.tsv` file collects the LST bases with $T^H = N$ (one file per
+value of $T^H$). Every row is one LST base, and the columns are the following.
+
+## Columns
+
+### `catalog type`
 
 The `catalog type` column labels the LST type of each base:
 
 - `NN`: No Node
 - `N`*X* (*X* = 1, ..., 17): *X* nodes
 - `A_dummy`, `D_dummy`: A- and D-type dummy LSTs
+
+### `catalog id`
+
+The index of the base *within* its `catalog type`. This is the identifier used
+to reference a base from the supergravity-block data.
+
+### `id`
+
+A sequential number assigned to the bases in each $T^H$ file, numbered from the
+top of the file. It is therefore unique only within a single `TH`*N*`.tsv`.
+
+### `list`
+
+The explicit LST base, written as a (possibly nested) list. Adjacent entries
+have intersection number 1. Nesting encodes branching: in
+`{x1,{x2,{x3,x4}},x5}` the chain of mutual intersections is `x1`–`x4`–`x5`,
+together with `x3`–`x4` and `x2`–`x4`. In other words `x2` and `x3` each
+intersect only `x4` (the innermost entry of the branch), not each other. This
+is the configuration written as $x_1\underset{x_2}{\overset{x_3}{x_4}}x_5$ in
+the paper.
+
+### `29TH+H-V`
+
+The value of $29\,T^H + H - V$ for the base.
+
+### `gauge algebra`
+
+The non-Higgsable gauge algebra carried by the base (`0` if there is none).
+
+### `symmetry`
+
+The symmetry group of the base, given by a list of generators. Each generator
+is a relabeling of the base's nodes (the positions numbered in `list`) under
+which the base is invariant:
+
+- `Inversion`: reversal of the node ordering;
+- `{i,j}`: the transposition that swaps node `i` and node `j`.
+
+An empty entry means the base has no nontrivial symmetry.
+
+### `H-String Weight`
+
+The coefficients of the $H$-string charge $f$ of `main.tex`, expressed in the
+basis of the base's generators. The charge is the linear combination
+$f = \sum_i n_i\,\mathcal{C}_i$, and `H-String Weight` lists the coefficients
+$n_i$ in node order.
+
+## File index
 
 | TH | count | file |
 |---:|---:|---|
