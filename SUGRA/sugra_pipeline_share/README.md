@@ -91,6 +91,49 @@ afterward if you only want the so7/2 family. (`2` = a gauge-less `-2` glued onto
 an isolated `nhc_2_3`'s `-2`, forming a `nhc_2_2_3`; `2mix` = the same with extra
 `(-1)` legs.)
 
+## External attachment specs & multiplicities
+
+Externals attach via several modes. **Single-curve** externals (`attach_single`,
+one target curve of the listed self-intersection):
+
+| tag | ext curve | target | int number |
+|-----|-----------|--------|------------|
+| `su2` | −2 | −1 | 1–2 |
+| `su3` | −3 | −1 | 1–2 |
+| `su2n3` | −2 | −3 | 1 |
+| `su3n2` | −3 | −2 | 1 |
+| `su8` | −2 | −4 | 2 |
+| `so16n2` | −4 | −2 | 2 |
+| `so8` | −4 | −1 | 1 |
+| `f4` | −5 | −1 | 1 |
+| `e6` | −6 | −1 | 1 |
+| `e7p` | −7 | −1 | 1 |
+| `e7` | −8 | −1 | 1 |
+| `e8` | −12 | −1 | 1 |
+| `hat1m1` | −1 | −1 | 1 |
+| `hat1m2` | −1 | −2 | 1 |
+
+**Multi-target / cluster** modes:
+
+| mode | external | # targets | int per leg |
+|------|----------|-----------|-------------|
+| `attach_v6_multi` | `su2` / `su3` (−2/−3) | 2 … all `(−1)` | **1–5** |
+| `attach_v6_multi` | `so8`…`e8` | 2 … (cc-limited, ≤9) | cc-limited (≤9) |
+| `attach_mixed_generic` | mixed (base −2/−3 + `(−1)` legs) | 1 … many `(−1)` | 1–5 |
+| `attach_nhc_cluster` | `nhc_2_3` / `nhc_2_3_2` / `nhc_2_4` | each cluster curve → 1–3 `(−1)` (`nhc_2_3` also a −2) | 1–2 |
+| `attach_nhc_cluster` | `nhc_2_2_3` | 1 target / curve | 1 |
+
+So `su2`/`su3` reach intersection number **5** via the multi-target / mixed modes
+(each `(−1)` leg `1..mixed_int_max = 5`). The single-target spec is enumerated only
+at int **1–2**: a higher multiplicity on a *single* `(−1)` is reached only when the
+gauge is shared across `≥2` `(−1)` curves (the `v6_multi` / mixed path).
+
+The single-target cap of **2** is a deliberate **chain-load bound**. Measured at
+`T=10` (no-canonical, no-2mix): raising the single `su2`/`su3` cap to 5 adds only
+**+2.9 %** distinct blocks (8,191,786 → 8,430,508) for **+79 %** wall time (≈1.8×)
+— i.e. ~3 % completeness traded for a large speed-up, and the gap widens at higher
+`T`. So the cap stays at 2.
+
 ## ⚠️ Intersection-number blow-up (light gauge externals)
 
 The **light** gauge externals — `su2` (a `-2`), `su3` (a `-3`), the
