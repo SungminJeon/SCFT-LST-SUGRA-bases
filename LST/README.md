@@ -1,4 +1,4 @@
-# LSTList_filtered_combined dataset
+# LSTList
 
 Each `TH`*N*`.tsv` file collects the LST bases with $T^H = N$ (one file per
 value of $T^H$). Every row is one LST base, and the columns are the following.
