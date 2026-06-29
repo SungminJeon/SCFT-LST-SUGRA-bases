@@ -559,6 +559,32 @@ inline void enhance_hat1_gauge(NHCResult& nhc,
             return;
         }
     }
+
+    // hat1m2 (su16 on a -1 sitting on a -2): that -2 is a frozen su(8) curve, so
+    // every (-1) touching the -2 must also fit su8's central charge. The checks
+    // above miss this (su8 is not stored on the -2). Reject if any such (-1)
+    // exceeds the budget once su8's contribution is added.
+    if (target_si == -2) {
+        int t2 = -1;
+        for (int j = 0; j < n; j++)
+            if (j != hat1_idx && IF(hat1_idx, j) != 0 && IF(j, j) == -2) { t2 = j; break; }
+        if (t2 >= 0) {
+            for (int i = 0; i < n; i++) {
+                if (i == hat1_idx || i == t2 || IF(i, i) != -1 || IF(i, t2) == 0) continue;
+                double total_c = central_charge(GAUGE_SU8, std::abs(IF(i, t2)));
+                for (int j = 0; j < n; j++) {
+                    if (j == i || IF(i, j) == 0) continue;
+                    if (IF(j, j) == -1 && nhc.curve_gauges[j].dim == 0) continue;
+                    total_c += central_charge(nhc.curve_gauges[j], std::abs(IF(i, j)));
+                }
+                if (total_c > cc_budget + 1e-9) {
+                    nhc.passes = false;
+                    nhc.fail_reason = "L2(hat1m2): frozen su8 on -2 over budget on a touching -1";
+                    return;
+                }
+            }
+        }
+    }
 }
 
 // ############################################################################

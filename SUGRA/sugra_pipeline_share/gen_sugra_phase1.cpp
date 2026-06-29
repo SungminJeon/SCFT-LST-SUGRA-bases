@@ -1326,9 +1326,21 @@ inline Phase1SpecResult generate_single_spec(
             g_current_base_T = n_base;  // for --use-lst-T mode: LST curve count
 
             std::vector<int> target_curves;
-            for (int i = 0; i < n_base; i++)
-                if (base_IF(i, i) == spec.target_si)
-                    target_curves.push_back(i);
+            for (int i = 0; i < n_base; i++) {
+                if (base_IF(i, i) != spec.target_si) continue;
+                // hat1→(-2): target must be standalone (not part of NHC chain)
+                // (same filter as the main loop; was missing on the dummy-LST path,
+                //  letting hat1m2/su16 attach to a -2 inside a -2-2 chain)
+                if (spec.is_hat1 && spec.target_si == -2) {
+                    bool standalone = true;
+                    for (int j = 0; j < n_base; j++) {
+                        if (j == i || base_IF(i, j) == 0) continue;
+                        if (base_IF(j, j) != -1) { standalone = false; break; }
+                    }
+                    if (!standalone) continue;
+                }
+                target_curves.push_back(i);
+            }
 
             for (int tidx : target_curves) {
                 if (spec.target_si == -1 && !spec.is_hat1) {
