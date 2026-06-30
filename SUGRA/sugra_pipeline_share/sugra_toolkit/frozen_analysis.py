@@ -82,9 +82,9 @@ def run(froot):
                    label=f"{t}  ({tot:,})")
     ax.set_yscale("log")
     ax.grid(True, which="major", color="#cfcfcf", linewidth=0.7, zorder=0)
-    ax.set_xlabel(r"$T$", fontsize=17)
+    ax.set_xlabel(r"$T_\mathrm{block}$", fontsize=17)
     ax.set_ylabel("Number of gravity blocks (log)", fontsize=15)
-    ax.set_title("Frozen gravity blocks per $T$", fontsize=16)
+    ax.set_title("Frozen gravity blocks per $T_\mathrm{block}$", fontsize=16)
     ax.legend(title="frozen external (total)", fontsize=12, title_fontsize=12,
               frameon=True, framealpha=0.95)
     for ext in ("png", "pdf"):

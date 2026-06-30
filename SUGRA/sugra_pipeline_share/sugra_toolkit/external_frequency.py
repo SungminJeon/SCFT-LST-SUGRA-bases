@@ -30,8 +30,10 @@ def run(by_combo_csv, out=None):
     occ, inbase, tot = Counter(), Counter(), 0
     with open(by_combo_csv) as f:
         r = csv.reader(f); next(r)
-        for combo, n in r:
-            n = int(n); tot += n
+        for row in r:                       # by_combo may carry extra cols (percent_of_total)
+            if len(row) < 2 or not row[1].isdigit():
+                continue
+            combo, n = row[0], int(row[1]); tot += n
             for tag, c in Counter(combo.split("+")).items():
                 occ[tag] += c * n        # total occurrences (per-object)
                 inbase[tag] += n         # bases containing >=1

@@ -123,6 +123,16 @@ by external gauge content (`su3n2 → g2`; NHC clusters by their gauges). Tag-ba
 grown into a `-2-3-2` is scored su2+so7+su2 (not su2+g2) → **1,293**
 (`generator_patterns_exact.csv`).
 
+The gauge-less **unit externals** `1` (a `-1`) and `2` (a `-2`) carry no gauge, so
+the census above lists them as `(none)`. `external_1_2_analysis.py` tracks them on
+their own — `T_block` distribution, co-occurring externals, and a figure:
+```
+python external_1_2_analysis.py "<catalog>" stats_out
+```
+Snapshot: `1` appears in **34,900** blocks (always the sole external, `T_block` 2–97),
+`2` in **618,880** (top co-external `su2`; `T_block` 5–116). Results in
+`../stats_final/external_1_2_*`.
+
 ## Frozen blocks
 
 The **frozen** gravity blocks are those carrying a frozen NHC
@@ -166,7 +176,7 @@ deduplication is needed (the build reports `dups removed=0`).
 ## Physics cheat-sheet
 
 - **`T_H`** — tensor count of the underlying Little String Theory (LST) base.
-- **`T`**  — tensor count of the extended base (= `sig_neg`).
+- **`T`**  — tensor count of the extended base (= `sig_neg`); labelled `T_block` in figures.
 - **`T_min`** — minimum `T` admitting a SUGRA b0 lift; `None` if undefined.
 - **external** — an extra `(-n)` curve glued onto the LST. Tags: `su2`(-2),
   `su3`(-3), `so8`(-4), `f4`(-5), `e6`(-6), `e7p`(-7), `e7`(-8), `e8`(-12),
@@ -224,6 +234,8 @@ Gravity blocks by number of external curves:
 - [`blocks_by_gauge.csv`](../stats_final/blocks_by_gauge.csv) — blocks per (gauge, self-int), incl. NHC-cluster gauges
 - [`blocks_by_gauge_nonhc.csv`](../stats_final/blocks_by_gauge_nonhc.csv) — same, single-curve externals only
 - [`blocks_by_nhc.csv`](../stats_final/blocks_by_nhc.csv) — blocks per NHC cluster
+- [`external_1_2_T_distribution.csv`](../stats_final/external_1_2_T_distribution.csv) — `T_block` dist of gauge-less `1`/`2`
+- [`external_1_2_cogauge.csv`](../stats_final/external_1_2_cogauge.csv) — co-occurring externals for `1`/`2`
 - [`generator_patterns.csv`](../stats_final/generator_patterns.csv) — distinct generator (external-combo) patterns, tag-based
 - [`generator_patterns_exact.csv`](../stats_final/generator_patterns_exact.csv) — same, IF-exact (`-2-3`→`-2-3-2`)
 
@@ -255,6 +267,7 @@ Regenerate with `python make_plots.py` (writes `.png` + `.pdf`). Full set in
 plus [blocks per external](../stats_final/blocks_per_gauge.png),
 [external frequency](../stats_final/external_frequency.png) and
 [frozen `T` vs #blocks](../Frozen%20blocks/analysis/frozen_T_vs_blocks.png).
+Also [unit externals `1`/`2` vs `T_block`](../stats_final/external_1_2_vs_Tblock.png).
 
 Inline previews:
 
