@@ -130,9 +130,24 @@ gauge is shared across `≥2` `(−1)` curves (the `v6_multi` / mixed path).
 
 The single-target cap of **2** is a deliberate **chain-load bound**. Measured at
 `T=10` (no-canonical, no-2mix): raising the single `su2`/`su3` cap to 5 adds only
-**+2.9 %** distinct blocks (8,191,786 → 8,430,508) for **+79 %** wall time (≈1.8×)
+**+2.9 %** distinct blocks (8,191,978 → 8,430,707) for **+95 %** wall time (≈1.95×)
 — i.e. ~3 % completeness traded for a large speed-up, and the gap widens at higher
-`T`. So the cap stays at 2.
+`T`. So the cap stays at 2. *(Re-measured 2026-06-30 on current code, chain MAX=12;
+an earlier MAX=9 run gave +2.9 % / +79 %.)*
+
+The **chain depth itself** is capped at **9 rounds** (`run_chain.sh` MAX=9 in
+`run_pipeline*.sh`). A full `T_H<=10` re-run to convergence (chain MAX=13,
+`--save-nonsugra`, clean-final lineage `--no-2mix --no-canonical`) shows the chain
+produces **399 distinct blocks past round 9** (rounds 10/11/12 = 365/33/1,
+converging at round 13), all at `T_H<=9`. **Every one is invalid:** they are deep
+`su2`/`su3`-stacking on the `(−1)` curves of a minimal (mostly `T_H=1`) base, filled
+to the c.c. budget (8 per `(−1)`; `c(su2)=1`, `c(su3)=2`). A genuine SUGRA base
+attaching that many `su2`/`su3` needs a matching number of `su2n3`/`su2n3mix`
+partners, which attach at most 6 — here `su2>=7` (needs >6 partners; 378 blocks) or
+`su2<=6` with no `su2n3` partner (21 blocks), so **0/399 survive**. **So the 9-round
+cap loses no valid blocks** — a justified practical bound, not a truncation of real
+data. (Evidence dataset: `round10plus_cap9_excluded/`. `run_chain.sh` auto-stops on
+an empty round, so MAX=9 is only a safety ceiling.)
 
 ## ⚠️ Intersection-number blow-up (light gauge externals)
 

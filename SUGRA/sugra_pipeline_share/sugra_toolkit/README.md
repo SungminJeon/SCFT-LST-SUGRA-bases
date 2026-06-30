@@ -133,6 +133,18 @@ Snapshot: `1` appears in **34,900** blocks (always the sole external, `T_block` 
 `2` in **618,880** (top co-external `su2`; `T_block` 5–116). Results in
 `../stats_final/external_1_2_*`.
 
+`count_by_nhc_exact.py` **splits the `nhc_2_3` row of `blocks_by_nhc.csv`** into its
+three **IF-exact** outcomes: an attached `-2-3` can stay `-2-3` (su2+g2) or GROW in a
+later chain step into `-2-3-2` (su2+so7+su2) or `-2-2-3` (sp1+g2). The grown shape is
+read off the actual intersection form (the `nhc_2_3` external's connected component,
+via its eigenvalue spectrum). `nhc_2_2_3` and `nhc_2_3_2` are **separate attach modes**
+(whole clusters glued directly) and are left as their tag counts. Outputs
+`blocks_by_nhc_exact.csv`, `nhc_2_3_outcome_by_THplus1.csv` (+ figure),
+`nhc_exact_migration.csv`. Snapshot (blocks): `nhc_2_3` stays `-2-3` **1,592,322** /
+grew `-2-3-2` **152,320** / grew `-2-2-3` **56,216** (growth begins at `T_H+1` ≥ 3;
+the three rows may marginally overlap — a block with two `nhc_2_3` clusters of
+different shapes counts in both).
+
 ## Frozen blocks
 
 The **frozen** gravity blocks are those carrying a frozen NHC
@@ -234,6 +246,10 @@ Gravity blocks by number of external curves:
 - [`blocks_by_gauge.csv`](../stats_final/blocks_by_gauge.csv) — blocks per (gauge, self-int), incl. NHC-cluster gauges
 - [`blocks_by_gauge_nonhc.csv`](../stats_final/blocks_by_gauge_nonhc.csv) — same, single-curve externals only
 - [`blocks_by_nhc.csv`](../stats_final/blocks_by_nhc.csv) — blocks per NHC cluster
+- [`blocks_by_nhc_exact.csv`](../stats_final/blocks_by_nhc_exact.csv) — `nhc_2_3` split into 3 **IF-exact** outcomes (stays `-2-3` / grew `-2-3-2` / `-2-2-3`); `nhc_2_2_3`,`nhc_2_3_2` kept as tags
+- [`nhc_2_3_outcome_by_THplus1.csv`](../stats_final/nhc_2_3_outcome_by_THplus1.csv) — fate of attached `-2-3` per `T_H+1`
+- [`nhc_exact_migration.csv`](../stats_final/nhc_exact_migration.csv) — origin tag → exact cluster (#clusters)
+- [`external_1_2_summary.csv`](../stats_final/external_1_2_summary.csv) — headline: #blocks with `1` (34,900) / ≥1 `2` (618,880), %, occ, `T_block` range
 - [`external_1_2_T_distribution.csv`](../stats_final/external_1_2_T_distribution.csv) — `T_block` dist of gauge-less `1`/`2`
 - [`external_1_2_cogauge.csv`](../stats_final/external_1_2_cogauge.csv) — co-occurring externals for `1`/`2`
 - [`generator_patterns.csv`](../stats_final/generator_patterns.csv) — distinct generator (external-combo) patterns, tag-based
@@ -268,6 +284,7 @@ plus [blocks per external](../stats_final/blocks_per_gauge.png),
 [external frequency](../stats_final/external_frequency.png) and
 [frozen `T` vs #blocks](../Frozen%20blocks/analysis/frozen_T_vs_blocks.png).
 Also [unit externals `1`/`2` vs `T_block`](../stats_final/external_1_2_vs_Tblock.png).
+Also [fate of `-2-3` per `T_H+1`](../stats_final/nhc_2_3_outcome_by_THplus1.png).
 
 Inline previews:
 

@@ -1,0 +1,7 @@
+nhc_cluster,curves,gauge,n_blocks,percent_of_total,source
+nhc_2_3 (stays -2-3),"(-2,-3)",su2+g2,1592322,16.5460,nhc_2_3 attach (IF-exact)
+nhc_2_3 -> -2-3-2,"(-2,-3,-2)",su2+so7+su2,152320,1.5828,nhc_2_3 attach (IF-exact)
+nhc_2_3 -> -2-2-3,"(-2,-2,-3)",sp1+g2,56216,0.5841,nhc_2_3 attach (IF-exact)
+nhc_2_2_3,"(-2,-2,-3)",sp1+g2,454428,4.7220,separate attach mode (tag)
+nhc_2_3_2,"(-2,-3,-2)",su2+so7+su2,433384,4.5034,separate attach mode (tag)
+ANY_nhc,-,-,2576440,26.7722,
