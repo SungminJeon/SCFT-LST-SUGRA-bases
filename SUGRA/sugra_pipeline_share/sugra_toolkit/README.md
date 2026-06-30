@@ -211,20 +211,50 @@ Gravity blocks by number of external curves:
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | blocks | 233,028 | 1,055,692 | 2,512,337 | 2,875,754 | 1,852,507 | 774,243 | 241,064 | 61,666 | 14,471 | 2,523 | 280 | 14 |
 
-### Full breakdowns (CSV)
+### Data tables (CSV)
 
-In [`catalog_summary/`](catalog_summary/) — regenerate any from a catalog with
-`python gauge_analysis.py <catalog> gauge_out` (and `python stats.py <catalog> stats_out`):
+**Catalog-wide** — [`../stats_final/`](../stats_final/):
+- [`by_combo.csv`](../stats_final/by_combo.csv) — blocks per external combo (+ `percent_of_total`)
+- [`by_LSTGauge.csv`](../stats_final/by_LSTGauge.csv) — blocks per LST gauge algebra
+- [`by_LST.csv`](../stats_final/by_LST.csv) — blocks per LST (type, `T_H`, id)
+- [`by_T_H.csv`](../stats_final/by_T_H.csv) — blocks per `T_H`
+- [`classification.csv.gz`](../stats_final/classification.csv.gz) — (`T_H`, LST gauge, combo) → n
+- [`external_frequency.csv`](../stats_final/external_frequency.csv) — per-external frequency
+- [`blocks_by_gauge.csv`](../stats_final/blocks_by_gauge.csv) — blocks per (gauge, self-int), incl. NHC-cluster gauges
+- [`blocks_by_gauge_nonhc.csv`](../stats_final/blocks_by_gauge_nonhc.csv) — same, single-curve externals only
+- [`blocks_by_nhc.csv`](../stats_final/blocks_by_nhc.csv) — blocks per NHC cluster
+- [`generator_patterns.csv`](../stats_final/generator_patterns.csv) — distinct generator (external-combo) patterns, tag-based
+- [`generator_patterns_exact.csv`](../stats_final/generator_patterns_exact.csv) — same, IF-exact (`-2-3`→`-2-3-2`)
 
-- [`by_T_H.csv`](catalog_summary/by_T_H.csv) — blocks per `T_H`
-- [`by_T_summary.csv`](catalog_summary/by_T_summary.csv) — blocks & max gauge rank per `T` (=σ₋)
-- [`by_TH_nExt_gauge.csv.gz`](catalog_summary/by_TH_nExt_gauge.csv.gz) — blocks per (`T_H`, #external, gauge algebra)
-- [`gauge_patterns_by_THplus1.csv.gz`](catalog_summary/gauge_patterns_by_THplus1.csv.gz) — blocks per (`T_H+1`, gauge algebra)
-- [`gauge_patterns_by_T.csv.gz`](catalog_summary/gauge_patterns_by_T.csv.gz) — blocks per (`T` = σ₋, gauge algebra)
+**Gauge / T distributions** — [`../gauge_out/`](../gauge_out/):
+- [`by_T_summary.csv`](../gauge_out/by_T_summary.csv) — blocks & max gauge rank per `T` (=σ₋)
+- [`by_TH_nExt_gauge.csv.gz`](../gauge_out/by_TH_nExt_gauge.csv.gz) — (`T_H`, #external, gauge) → n
+- [`gauge_patterns_by_THplus1.csv.gz`](../gauge_out/gauge_patterns_by_THplus1.csv.gz) — (`T_H+1`, gauge) → n
+- [`gauge_patterns_by_T.csv.gz`](../gauge_out/gauge_patterns_by_T.csv.gz) — (`T`=σ₋, gauge) → n
 
-### Key figures
+**Frozen blocks** — [`../Frozen blocks/`](../Frozen%20blocks/):
+- [`SUMMARY.txt`](../Frozen%20blocks/SUMMARY.txt), [`manifest.csv`](../Frozen%20blocks/manifest.csv)
+- [`frozen_T_distribution.csv`](../Frozen%20blocks/analysis/frozen_T_distribution.csv) ([`_long`](../Frozen%20blocks/analysis/frozen_T_distribution_long.csv)) — `T`(=σ₋) vs #blocks per frozen external
+- [`hat1m1_cogauge.csv`](../Frozen%20blocks/analysis/hat1m1_cogauge.csv), [`hat1m2_cogauge.csv`](../Frozen%20blocks/analysis/hat1m2_cogauge.csv) — co-occurring gauges
+- [`su8_so16_explicit.tex`](../Frozen%20blocks/analysis/su8_so16_explicit.tex) — explicit `su8`/`so16` forms (cat2tex)
 
-Regenerate with `python make_plots.py` (see [`catalog_summary/`](catalog_summary/) for `.png`; `make_plots.py` also writes `.pdf`).
+(Small summary CSVs are also bundled in [`catalog_summary/`](catalog_summary/).)
+
+### Figures
+
+Regenerate with `python make_plots.py` (writes `.png` + `.pdf`). Full set in
+[`../gauge_out/`](../gauge_out/):
+[blocks vs `T_H`](../gauge_out/Number_GBs_by_TH_log.png) ·
+[blocks vs `T`](../gauge_out/Number_GBs_by_T_log.png) ·
+[max gauge rank vs `T`](../gauge_out/maxrank_by_T.png) ·
+[blocks vs #external](../gauge_out/Number_GBs_by_nExternal.png) ·
+[distinct patterns vs `T_H+1`](../gauge_out/Number_distinct_patterns.png) ·
+[distinct patterns vs `T`](../gauge_out/Number_distinct_patterns_by_T.png) —
+plus [blocks per external](../stats_final/blocks_per_gauge.png),
+[external frequency](../stats_final/external_frequency.png) and
+[frozen `T` vs #blocks](../Frozen%20blocks/analysis/frozen_T_vs_blocks.png).
+
+Inline previews:
 
 ![blocks vs T_H](catalog_summary/Number_GBs_by_TH_log.png)
 ![blocks vs T](catalog_summary/Number_GBs_by_T_log.png)
