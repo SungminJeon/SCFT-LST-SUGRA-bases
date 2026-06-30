@@ -147,7 +147,8 @@ A ready-made collection ships in **`../Frozen blocks/`** (alongside this toolkit
 Snapshot of the current catalog: `hat1m1` 1,724, `hat1m2` 3, `su8` 9,
 `so16n2` 3 (1,739 frozen blocks total). `su8` and `so16n2` — the two `-2-4`
 frozen-cluster pieces — never co-occur. The explicit `su8`/`so16n2` forms (12
-blocks) are typeset in `../Frozen blocks/analysis/su8_so16_explicit.tex` (via
+blocks) and the surviving `hat1m2` blocks (3) are typeset in
+`../Frozen blocks/analysis/su8_so16_explicit.tex` and `hat1m2_explicit.tex` (via
 `cat2tex`).
 
 ## Rebuilding the clean tree from raw archives
@@ -237,6 +238,7 @@ Gravity blocks by number of external curves:
 - [`frozen_T_distribution.csv`](../Frozen%20blocks/analysis/frozen_T_distribution.csv) ([`_long`](../Frozen%20blocks/analysis/frozen_T_distribution_long.csv)) — `T`(=σ₋) vs #blocks per frozen external
 - [`hat1m1_cogauge.csv`](../Frozen%20blocks/analysis/hat1m1_cogauge.csv), [`hat1m2_cogauge.csv`](../Frozen%20blocks/analysis/hat1m2_cogauge.csv) — co-occurring gauges
 - [`su8_so16_explicit.tex`](../Frozen%20blocks/analysis/su8_so16_explicit.tex) — explicit `su8`/`so16` forms (cat2tex)
+- [`hat1m2_explicit.tex`](../Frozen%20blocks/analysis/hat1m2_explicit.tex) — the surviving `hat1m2` blocks (cat2tex)
 
 (Small summary CSVs are also bundled in [`catalog_summary/`](catalog_summary/).)
 
