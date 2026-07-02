@@ -1,7 +1,7 @@
-# SCFT-LST-SUGRA-bases
+# LST-SUGRA-bases
 
 This repository contains data and code used in the classification program for
-six-dimensional SCFT, LST, and supergravity tensor bases. It is intended as a
+six-dimensional LST, and supergravity tensor bases. It is intended as a
 companion repository to the paper **6d Supergravity Blocks**.
 
 The public tree is organized around two parts:
