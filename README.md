@@ -2,7 +2,7 @@
 
 This repository contains data and code used in the classification program for
 six-dimensional LST, and supergravity tensor bases. It is intended as a
-companion repository to the paper **6d Supergravity Blocks**.
+companion repository to the paper **6d Supergravity Blocks, by Yuta Hamada, Seongmin Jeon, and Hee-Cheol Kim**.
 
 The public tree is organized around two parts:
 
@@ -11,8 +11,12 @@ The public tree is organized around two parts:
 - `SUGRA/sugra_pipeline_share/`: code and auxiliary data for generating,
   deduplicating, and inspecting non-Higgsable supergravity blocks.
 
-Large generated catalogs are treated as build products and are not necessarily
-tracked in the repository. Pipeline runs create directories such as `cat_*`,
+Large generated catalogs are archived on Zenodo under
+
+**DOI:** [10.5281/zenodo.20979750](https://doi.org/10.5281/zenodo.20979750)
+
+The GitHub repository contains the source tree, and pipeline code. 
+Pipeline runs create directories such as `cat_*`,
 `T_<min>_<max>_*`, and `final_byT/`; see the SUGRA pipeline README for details.
 
 ## Repository layout
