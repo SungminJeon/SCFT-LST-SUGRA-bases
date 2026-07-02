@@ -2,7 +2,9 @@
 
 This repository contains data and code used in the classification program for
 six-dimensional LST, and supergravity tensor bases. It is intended as a
-companion repository to the paper **6d Supergravity Blocks, by Yuta Hamada, Seongmin Jeon, and Hee-Cheol Kim**.
+companion repository to the paper 
+
+**6d Supergravity Blocks, by Yuta Hamada, Seongmin Jeon, and Hee-Cheol Kim**.
 
 The public tree is organized around two parts:
 
