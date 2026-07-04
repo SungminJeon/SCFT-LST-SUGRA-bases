@@ -65,7 +65,8 @@ inline std::vector<ExternalSpec> build_all_specs() {
     for (int k = 1; k <= 2; k++)
         a(-3, -1, k, false, "su(3) k=" + std::to_string(k), "su3");
     a(-3, -2, 1, false, "g2->su2", "su3n2");
-    a(-4, -1, 1, false, "so(8)", "so8");
+    for (int k = 1; k <= 2; k++)
+        a(-4, -1, k, false, "so(8) k=" + std::to_string(k), "so8");  // int 1-2: c.c.(so8,2)=7.0 fits (-1) budget 8
     a(-4, -2, 2, false, "so8->su2", "so16n2");
     a(-5, -1, 1, false, "$\\mathfrak{f}_4$", "f4");
     a(-6, -1, 1, false, "$\\mathfrak{e}_6$", "e6");

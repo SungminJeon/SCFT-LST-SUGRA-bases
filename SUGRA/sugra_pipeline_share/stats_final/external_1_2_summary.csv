@@ -1,4 +1,4 @@
 unit_external,self_int,n_blocks_containing,percent_of_total,n_occurrences,n_blocks_only_external,T_block_min,T_block_max,top_co_external
-1,-1,34900,0.3627,34900,34900,2,97,(none)
-2,-2,618880,6.4309,623395,2838,5,116,su2
-TOTAL_CATALOG,,9623579,100.0,,,,,
+1,-1,34900,0.3624,34900,34900,2,97,(none)
+2,-2,619008,6.4275,623523,2838,5,116,su2
+TOTAL_CATALOG,,9630606,100.0,,,,,

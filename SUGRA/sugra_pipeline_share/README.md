@@ -104,7 +104,7 @@ one target curve of the listed self-intersection):
 | `su3n2` | −3 | −2 | 1 |
 | `su8` | −2 | −4 | 2 |
 | `so16n2` | −4 | −2 | 2 |
-| `so8` | −4 | −1 | 1 |
+| `so8` | −4 | −1 | 1–2 |
 | `f4` | −5 | −1 | 1 |
 | `e6` | −6 | −1 | 1 |
 | `e7p` | −7 | −1 | 1 |
@@ -171,8 +171,9 @@ Built-in guards: the number of `(-1)` legs is hard-capped (`max_m1` = 4 for most
 mixes, 2 for `2mix`) and `2mix` defaults to a lower ceiling (3) — these caps are
 intentional anti-blow-up limits; **do not raise them casually**.
 
-By contrast the **heavy** externals (`e6`, `e7`, `e7p`, `e8`, `f4`, `so8`) are
-single curves attached with intersection number **1**, so they do *not* blow up.
+By contrast the **heavy** externals (`e6`, `e7`, `e7p`, `e8`, `f4`) are single
+curves attached with intersection number **1** (`so8` at **1–2**), so they do
+*not* blow up.
 
 **Guidance:** for production keep the default `mixed_int_max`; raise `--mix-k`
 only for a **narrow** `T` window and expect super-linear growth. If a run is

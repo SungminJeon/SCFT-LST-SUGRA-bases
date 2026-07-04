@@ -99,7 +99,8 @@ inline std::vector<ExternalSpec> build_all_specs() {
     for (int k = 1; k <= 2; k++)
         add(-3, -1, k, false, "su(3) k=" + std::to_string(k), "su3");
     add(-3,  -2, 1, false, "(-3)->(-2)",  "su3n2");
-    add(-4,  -1, 1, false, "so(8)",       "so8");
+    for (int k = 1; k <= 2; k++)
+        add(-4, -1, k, false, "so(8) k=" + std::to_string(k), "so8");  // int 1-2: c.c.(so8,2)=7.0 fits (-1) budget 8
     add(-4,  -2, 2, false, "(-4)->(-2)",  "so16n2");
     add(-5,  -1, 1, false, "f4",          "f4");
     add(-6,  -1, 1, false, "e6",          "e6");

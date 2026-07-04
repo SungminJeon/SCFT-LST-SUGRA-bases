@@ -221,9 +221,9 @@ Snapshot of the current catalog (`sugra blocks clean final`):
 
 | quantity | value |
 |---|---|
-| Total gravity blocks | **9,623,579** |
+| Total gravity blocks | **9,630,606** |
 | Tensor range | `T_H` = 1–192   (`T` = σ₋ = 2–193) |
-| Peak | `T_H` = 4 — 1,622,642 blocks |
+| Peak | `T_H` = 4 — 1,623,870 blocks |
 | Max total gauge rank | 296 (at `T` = 193) |
 | Distinct gauge patterns | 34,727 |
 | External curves / base | 1–12 (most have 3–4) |
@@ -232,7 +232,7 @@ Gravity blocks by number of external curves:
 
 | #ext | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| blocks | 233,028 | 1,055,692 | 2,512,337 | 2,875,754 | 1,852,507 | 774,243 | 241,064 | 61,666 | 14,471 | 2,523 | 280 | 14 |
+| blocks | 233,252 | 1,055,928 | 2,513,867 | 2,878,780 | 1,854,076 | 774,594 | 241,135 | 61,684 | 14,473 | 2,523 | 280 | 14 |
 
 ### Data tables (CSV)
 
@@ -269,6 +269,8 @@ Gravity blocks by number of external curves:
 - [`hat1m2_explicit.tex`](../Frozen%20blocks/analysis/hat1m2_explicit.tex) — the surviving `hat1m2` blocks (cat2tex)
 
 (Small summary CSVs are also bundled in [`catalog_summary/`](catalog_summary/).)
+
+**≥10-external blocks excluded by the 9-round chain cap** — [`../round10plus_cap9_excluded/`](../round10plus_cap9_excluded/): the 400 blocks the chain makes past round 9 (all invalid su2/su3-stacking without `su2n3` partners; [`summary.csv`](../round10plus_cap9_excluded/summary.csv), [`README.txt`](../round10plus_cap9_excluded/README.txt)). Evidence that cap-9 loses no valid data.
 
 ### Figures
 
