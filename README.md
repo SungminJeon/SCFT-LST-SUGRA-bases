@@ -5,6 +5,7 @@ six-dimensional LST, and supergravity tensor bases. It is intended as a
 companion repository to the paper 
 
 **6d Supergravity Blocks, by Yuta Hamada, Seongmin Jeon, and Hee-Cheol Kim**.
+[arXiv:2607.05496](https://arxiv.org/abs/2607.05496)
 
 The public tree is organized around two parts:
 
@@ -146,14 +147,17 @@ catalog produced by the pipeline is placed under `final_byT/`.
 
 ## Citation
 
-If you use this repository, please cite the companion paper. Replace the
-placeholder fields below by the arXiv/DOI information once available.
+If you use this repository, please cite the companion paper. 
 
 ```bibtex
-@misc{HamadaJeonKim6dSUGRABlocks,
-  title        = {6d Supergravity Blocks},
-  author       = {Hamada, Yuta and Jeon, Seongmin and Kim, Hee-Cheol},
-  year         = {2026},
-  note         = {Companion data and code: SCFT-LST-SUGRA-bases}
+@article{Hamada:2026zta,
+    author = "Hamada, Yuta and Jeon, Seongmin and Kim, Hee-Cheol",
+    title = "{6d Supergravity Blocks}",
+    eprint = "2607.05496",
+    archivePrefix = "arXiv",
+    primaryClass = "hep-th",
+    reportNumber = "KEK-TH-2849, RIKEN-iTHEMS-Report-26",
+    month = "7",
+    year = "2026"
 }
 ```
